@@ -9,7 +9,9 @@ Shader "Game/human"
         [Hdr] _BaseColor("Base Color", Color) = (1,1,1,1)
         _ShadowColor("Shadow Color", Color) = (1,1,1,1)
         _aoColor("ao颜色", Color) = (1,1,1,1)
-        _SpecularColor("高光颜色", Color) = (1,1,1,1)
+         [Space(50)]
+        [Hdr]_CharacterRimLightColor("侧面光颜色", Color) = (1,1,1,1)
+        _CharacterRimLightDirection("XY侧面光方向",Vector)=(1,1,1,1)
         _SrmaTex("SrmaTex (RGBA)", 2D) = "white" {}
         //_Metalic("_Metalic",2D) = "Black"{}
         //_Roughness("_Roughness",2D) = "Black"{}
@@ -20,10 +22,7 @@ Shader "Game/human"
         _LUTY("_LUTY",Range(0,4)) = 4
         _aoColor_value("_aoColor_value",Range(0,3)) = 1.5
         _Roughness_value("_Roughness_value",Range(0,5)) = 1.0
-        _Metalic_value("_Metalic_value",Range(1,5)) = 1.0
-        [Space50]
-        [Space50]
-        [Space50]
+        [Space(50)]
         _refmap("_refmap",Cube) = ""{}
         _Mip("_Mip",Range(0,8)) = 4.0
         _F0("_F0",Vector) = (0.04,0.04,0.04,0.04)
@@ -38,6 +37,7 @@ Shader "Game/human"
         [Toggle(enable_globlemetalic)]enable_globlemetalic("使用单独反射贴图",int)=0
         [Toggle(RENDER_MATLE)]RENDER_MATLE("自定义F0",int)=0
         [Toggle(RENDER_Unreal)]RENDER_Unreal("Unreal",int)=0
+        [Toggle(ScreenRimLight_DitalNormal)]ScreenRimLight_DitalNormal("侧面光细节贴图",int)=0
         
        
        
@@ -385,6 +385,7 @@ Shader "Game/human"
             #pragma shader_feature  _ RENDER_MATLE
             #pragma shader_feature  _ enable_globlemetalic
             #pragma shader_feature  _ RENDER_Unreal
+            #pragma shader_feature  _ ScreenRimLight_DitalNormal
           
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/SurfaceInput.hlsl"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
@@ -403,11 +404,11 @@ Shader "Game/human"
             float4 _BaseColor;
             float4 _ShadowColor;
             float4 _ShadowColor1;
+            float4 _CharacterRimLightColor,_CharacterRimLightDirection;
             float4 _aoColor;
             float _Roughness_value;
             float4 _F0;
             float4 _tuneNormalBlur;
-            float _Metalic_value;
             float _LUTY;
             float _Metalness;
             float _Smoothness;
@@ -632,19 +633,22 @@ Shader "Game/human"
                 surfacepbr.lobeWeight=lobeWeight;
                 surfacepbr._Roughness_value=_Roughness_value;
                 surfacepbr._Mip_Value=_Mip_Value;
-                surfacepbr._NormalWorld=N;
+                surfacepbr._NormalWorld=normal;
+                surfacepbr._Normal_modle=N;
                 surfacepbr._tuneNormalBlur=_tuneNormalBlur;
+                surfacepbr._CharacterRimLightColor=_CharacterRimLightColor;
+                surfacepbr._CharacterRimLightDirection=_CharacterRimLightDirection;
                 
                 
 
                 //  half4 shadowMask = CalculateShadowMask(inputData);
 
                 float4 Finalcolor=UniversalFragmentPBR0(inputData,surfaceData,surfacepbr);
-               
+                float3 test = dot(N,V);
                 #if Test_On
                 return surfaceData.alpha;
                 #else 
-                return Finalcolor.xyzz;
+                return Finalcolor;
                 #endif
                
             }

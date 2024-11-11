@@ -32,7 +32,11 @@ struct SurfacePBR
     float _Roughness_value;
     float _Mip_Value;
     float3 _NormalWorld;
+    float3 _Normal_modle;
     float4 _tuneNormalBlur;
+    float4 _CharacterRimLightColor;
+    float4 _CharacterRimLightBorderOffset;
+    float4 _CharacterRimLightDirection;
 };
 float3 FresnalSchlickRoughness(float NV, float3 F0,float roughness)
 {
@@ -57,6 +61,28 @@ float DielectricSpecularcularToF0(float specular,float F0)
 float3 ComputeF0(float specular, float3 BaseColor, float Metallic,float F0)
 {
     return lerp(DielectricSpecularcularToF0(F0,specular).xxx, BaseColor, Metallic.xxx);
+}
+//屏幕侧面光
+float3 ScreenRimLight(SurfacePBR surfacepbr,float shadow)
+{
+    float3 N=0;
+    #if ScreenRimLight_DitalNormal
+    N=surfacepbr._NormalWorld;
+    #else
+    N=surfacepbr._Normal_modle;
+    #endif
+    float3 normal1InView = normalize(mul(UNITY_MATRIX_V,N));
+ 
+    float3 characterRimLightDir = normalize(float3(surfacepbr._CharacterRimLightDirection.xy, 1));
+ 
+    //float viewNormaloRimLightDir = pow((1-(dot(normal1InView, characterRimLightDir)*0.5+0.5)),1)*1;
+    float viewNormaloRimLightDir = pow((1-(dot(normal1InView, characterRimLightDir)*0.5+0.5)),5)*5;
+    float minBorder = surfacepbr._CharacterRimLightDirection.z + 0.5 - surfacepbr._CharacterRimLightDirection.w;
+    float maxBorder = surfacepbr._CharacterRimLightDirection.z + 0.5 + surfacepbr._CharacterRimLightDirection.w;
+ 
+    float rimTempValue = (viewNormaloRimLightDir - minBorder) / (maxBorder - minBorder);
+    float3 rimColor2nd = smoothstep(0, 1, rimTempValue) * surfacepbr._CharacterRimLightColor.xyz ;
+    return viewNormaloRimLightDir.xxx;
 }
 
 
@@ -242,7 +268,6 @@ half3 DirectBDRF_DualLobeSpecular(half roughness,half specular, half3 normalWS, 
        #endif
                 
  //直接光 漫反射
-      
                 float3 ks=F;
         #if RENDER_Unreal
                        ks=saturate(F_Unreal);
@@ -257,10 +282,11 @@ half3 DirectBDRF_DualLobeSpecular(half roughness,half specular, half3 normalWS, 
                 float3 aoColor=lerp(surface_pbr.aoColor,1,ao);
                        aoColor=saturate(lerp(1,aoColor,surface_pbr.aoColor_value));
                 float3 IndirectLight=(Diffuse_Indirect+Specular_Indirect)*aoColor;
-                       
+ //屏幕侧面光
+                float3 ScreenRimcol=ScreenRimLight(surface_pbr,shadow);
  //最终光照
                 float3 Finalcolor=0;
-                Finalcolor.xyz=((DirectLight+IndirectLight));
-                return Finalcolor;
+                Finalcolor.xyz=((DirectLight+IndirectLight)+ScreenRimcol);
+                return ScreenRimcol;
 
             }
