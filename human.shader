@@ -13,11 +13,7 @@ Shader "Game/human"
         [Hdr]_CharacterRimLightColor("侧面光颜色", Color) = (1,1,1,1)
         _CharacterRimLightDirection("XY侧面光方向",Vector)=(1,1,1,1)
         _SrmaTex("SrmaTex (RGBA)", 2D) = "white" {}
-        //_Metalic("_Metalic",2D) = "Black"{}
-        //_Roughness("_Roughness",2D) = "Black"{}
-        //_AO("AO",2D) = "White"{}
         _Normal("_Normal",2D) = "Bump"{}
-        _DitelNormal("_DitelNormal",2D) = "Bump"{}
         _SSSLUT("_SSSLUT",2D) = "Black"{}
         _LUTY("_LUTY",Range(0,4)) = 4
         _aoColor_value("_aoColor_value",Range(0,3)) = 1.5
@@ -28,16 +24,18 @@ Shader "Game/human"
         _F0("_F0",Vector) = (0.04,0.04,0.04,0.04)
         _tuneNormalBlur("_tuneNormalBlur",Color) = (0.04,0.04,0.04,0.04)
         _Mip_Value("_Mip_Value",Range(0,2)) = 0.5
-        _ditelNormal_Value("_ditelNormal_Value",Range(0,1)) = 0.5
-        _Metalness("_Metalness",Range(0,2)) = 0.5
-        _Smoothness("_Smoothness",Range(0,2)) = 0.5
-        _AOScale("_AOScale",Range(0,2)) = 0.5
         lobeWeight("lobeWeight",Range(0,2)) = 0.5
+        [Space(50)]
+        [Space(50)]
+        anisotropic("anisotropic",Range(0,1)) = 0.5
         [Toggle(Test_On)]Test_0n("Test_0n",int)=0
         [Toggle(enable_globlemetalic)]enable_globlemetalic("使用单独反射贴图",int)=0
-        [Toggle(RENDER_MATLE)]RENDER_MATLE("自定义F0",int)=0
         [Toggle(RENDER_Unreal)]RENDER_Unreal("Unreal",int)=0
         [Toggle(ScreenRimLight_DitalNormal)]ScreenRimLight_DitalNormal("侧面光细节贴图",int)=0
+        [Toggle(SSS_RENDER)]SSS_RENDER("SSS开关",int)=0
+        [Toggle(HAIR_RENDER)]HAIR_RENDER("各向异性高光开关",int)=0
+        [Toggle(F0_UN)]F0_UN("金属F0",int)=0
+        [Toggle(Cloth_UN)]Cloth_UN("布料",int)=0
         
        
        
@@ -371,6 +369,7 @@ Shader "Game/human"
             HLSLPROGRAM
             #pragma multi_compile_fragment _ _MAIN_LIGHT_SHADOWS
             #pragma multi_compile_fragment _ _MAIN_LIGHT_SHADOWS_CASCADE
+            #pragma multi_compile_fragment _ _MAIN_LIGHT_SHADOWS_SCREEN
             #pragma multi_compile_fragment _ _ADDITIONAL_LIGHTS_VERTEX _ADDITIONAL_LIGHTS
             #pragma multi_compile_fragment _ _ADDITIONAL_LIGHT_SHADOWS
             #pragma multi_compile_fragment _ _SHADOWS_SOFT
@@ -382,10 +381,12 @@ Shader "Game/human"
             #pragma fragment frag
             #pragma shader_feature  _OVERLAY_NONE _OVERLAY_ADD _OVERLAY_MULTIPLY
             #pragma shader_feature  _ Test_On
-            #pragma shader_feature  _ RENDER_MATLE
             #pragma shader_feature  _ enable_globlemetalic
             #pragma shader_feature  _ RENDER_Unreal
             #pragma shader_feature  _ ScreenRimLight_DitalNormal
+            #pragma shader_feature  _ SSS_RENDER
+            #pragma shader_feature  _ HAIR_RENDER
+            #pragma shader_feature  _ F0_UN
           
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/SurfaceInput.hlsl"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
@@ -399,7 +400,6 @@ Shader "Game/human"
             TEXTURE2D(_SrmaTex);SAMPLER(sampler_SrmaTex);float4 _SrmaTex_ST;
             TEXTURE2D(_SSSLUT);SAMPLER(sampler_SSSLUT);float4 _SSSLUT_ST;
             TEXTURE2D(_Normal);SAMPLER(sampler_Normal);float4 _Normal_ST;
-            TEXTURE2D(_DitelNormal);SAMPLER(sampler_DitelNormal);float4 _DitelNormal_ST;
             TEXTURECUBE(_refmap);SAMPLER(sampler_refmap);
             float4 _BaseColor;
             float4 _ShadowColor;
@@ -415,8 +415,8 @@ Shader "Game/human"
             float _AOScale;
             float _Mip_Value;
             float _Mip;
+            float anisotropic;
             float _SSSLut;
-            float _ditelNormal_Value;
             float _aoColor_value;
             float lobeWeight;
           
@@ -442,13 +442,14 @@ Shader "Game/human"
                 float3 bitangent : TEXCOORD2;
                 float3 normal : TEXCOORD3;
                 float3 posWS : TEXCOORD4;
+                float3 posOS : TEXCOORD8;
                 float4 shadowCoord : TEXCOORD5;
                 half4  fogFactorAndVertexLight : TEXCOORD6; // x: fogFactor, yzw: vertex light
                 UNITY_VERTEX_INPUT_INSTANCE_ID
                 DECLARE_LIGHTMAP_OR_SH(lightmapUV, vertexSH, 7);
             };
             
-            half4 UniversalFragmentPBR0(InputData inputData, SurfaceData surfaceData,SurfacePBR surfacepbr)
+            half4 UniversalFragmentPBR0(InputData inputData, SurfaceData surfaceData,SurfacePBR surfacepbr,TBNpbr tbnpbr)
             {
             #ifdef _SPECULARHIGHLIGHTS_OFF
                 bool specularHighlightsOff = true;
@@ -485,7 +486,7 @@ Shader "Game/human"
                     MixRealtimeAndBakedGI(mainLight, inputData.normalWS, inputData.bakedGI);
                   
                 
-               lightingData.mainLightColor = PBR_Light(brdfData,mainLight,inputData.normalWS,inputData.positionWS,inputData.viewDirectionWS,surfacepbr);
+               lightingData.mainLightColor = PBR_Light(brdfData,mainLight,inputData.normalWS,inputData.positionWS,inputData.viewDirectionWS,surfacepbr,tbnpbr);
               
     #if defined(_ADDITIONAL_LIGHTS)
     uint pixelLightCount = GetAdditionalLightsCount();
@@ -539,10 +540,10 @@ Shader "Game/human"
                 half  fogFactor = ComputeFogFactor(positionInputs.positionCS.z);
                 V2FData o;
                 o.uv = v.uv;
-                
                 o.pos = positionInputs.positionCS;
                 o.normal =TransformObjectToWorldNormal(v.normal);
                 o.posWS = posWS;
+                o.posOS = v.vertex.xyz;
                 o.tangent = TransformObjectToWorldDir(v.tangent);
                 //Unity引擎的问题，必须这么写 乘以 v.tangent.w
                 o.bitangent = cross(o.normal, o.tangent) * v.tangent.w;
@@ -575,13 +576,23 @@ Shader "Game/human"
                 float3 VH= dot(V,H);
                 float3x3 TBN = float3x3(T,B,N);
                
-                float3 normal=UnpackNormal(SAMPLE_TEXTURE2D(_Normal,sampler_Normal,uv));
-                float3 _ditelNormal=UnpackNormal(SAMPLE_TEXTURE2D(_DitelNormal,sampler_DitelNormal,uv*_DitelNormal_ST.xy+_DitelNormal_ST.zw));
-                       normal=normalize(mul(normal,TBN));
-                       _ditelNormal=normalize(mul(_ditelNormal,TBN));
-                       normal=lerp(normal,_ditelNormal,_ditelNormal_Value);
-                     
                 
+                float3 normal=UnpackNormal(SAMPLE_TEXTURE2D(_Normal,sampler_Normal,uv));
+                float  tangentFactor  = dot(T,normal);
+                float  BtangentFactor = dot(B,normal);
+                float  roughnessInTangent  = roughness * (1.0 - abs(tangentFactor));
+                float  roughnessInBTangent = roughness * (1.0 - abs(BtangentFactor));
+                       normal=normalize(mul(normal,TBN));
+                float  TdotH=dot(T,H);
+                float  BdotH=dot(B,H);
+                float  NdotH=dot(N,H);
+                float  TdotV=dot(T,V);
+                float  BdotV=dot(B,V);
+                float  NdotV=dot(N,V);
+                float  TdotL=dot(T,L);
+                float  BdotL=dot(B,L);
+                float  NdotL=dot(N,L);
+                      
                // 设置 SurfaceData
                 SurfaceData surfaceData;
                 surfaceData.albedo = baseColor.rgb;
@@ -589,9 +600,9 @@ Shader "Game/human"
                 surfaceData.metallic   = _Metalness * SRMA.z;
                 surfaceData.smoothness =SRMA.y;
                 surfaceData.normalTS =  normal;
-                surfaceData.specular =  SRMA.y*_Roughness_value;
+                surfaceData.specular = SRMA.y;
 
-                surfaceData.occlusion = _AOScale * SRMA.a;
+                surfaceData.occlusion =  SRMA.a;
                 surfaceData.emission = 0.0;
 
                 surfaceData.clearCoatMask = 0.0h;
@@ -606,10 +617,10 @@ Shader "Game/human"
                 inputData.shadowCoord = input.shadowCoord;
                 inputData.fogCoord = input.fogFactorAndVertexLight.x;
                 inputData.vertexLighting = input.fogFactorAndVertexLight.yzw;
-                //inputData.bakedGI = SAMPLE_GI(input.staticLightmapUV, input.vertexSH, normal) ;
+                //inputData.bakedGI = SAMPLE_GI(input.lightmapUV, input.vertexSH, normal) ;
                 inputData.bakedGI = 0;
                 inputData.normalizedScreenSpaceUV = GetNormalizedScreenSpaceUV(input.pos);
-                inputData.shadowMask = SAMPLE_SHADOWMASK(input.staticLightmapUV);
+                inputData.shadowMask = SAMPLE_SHADOWMASK(input.lightmapUV);
                 //
 
 
@@ -625,9 +636,8 @@ Shader "Game/human"
                 surfacepbr.aoColor=_aoColor.xyz;
                 surfacepbr.aoColor_value=_aoColor_value;
                 surfacepbr.Specular=specular;
-                surfacepbr.F0=_F0;
+                surfacepbr.F0=_F0.xyz;
                 surfacepbr._Mip=_Mip;
-                surfacepbr._DitelNormal=_ditelNormal;
                 surfacepbr.albedo=baseColor.xyz;
                 surfacepbr.metallic=metalic;
                 surfacepbr.lobeWeight=lobeWeight;
@@ -638,15 +648,27 @@ Shader "Game/human"
                 surfacepbr._tuneNormalBlur=_tuneNormalBlur;
                 surfacepbr._CharacterRimLightColor=_CharacterRimLightColor;
                 surfacepbr._CharacterRimLightDirection=_CharacterRimLightDirection;
-                
-                
+                surfacepbr.anisotropic=anisotropic;
+                surfacepbr.posOS=input.posOS;
 
-                //  half4 shadowMask = CalculateShadowMask(inputData);
+                TBNpbr tbnpbr;
+                tbnpbr.TdotH=TdotH;
+                tbnpbr.BdotH=BdotH;
+                tbnpbr.NdotH=NdotH;
+                tbnpbr.TdotV=TdotV;
+                tbnpbr.BdotV=BdotV;
+                tbnpbr.NdotV=NdotV;
+                tbnpbr.TdotL=TdotL;
+                tbnpbr.BdotL=BdotL;
+                tbnpbr.NdotL=NdotL;
+                tbnpbr.roughnessInTangent =roughnessInTangent;
+                tbnpbr.roughnessInBTangent=roughnessInBTangent;
 
-                float4 Finalcolor=UniversalFragmentPBR0(inputData,surfaceData,surfacepbr);
+
+                float4 Finalcolor=UniversalFragmentPBR0(inputData,surfaceData,surfacepbr,tbnpbr);
                 float3 test = dot(N,V);
                 #if Test_On
-                return surfaceData.alpha;
+                return SRMA.r.xxxx;
                 #else 
                 return Finalcolor;
                 #endif
