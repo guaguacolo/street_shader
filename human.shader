@@ -36,19 +36,7 @@ Shader "Game/human"
         [Toggle(HAIR_RENDER)]HAIR_RENDER("各向异性高光开关",int)=0
         [Toggle(F0_UN)]F0_UN("金属F0",int)=0
         [Toggle(Cloth_UN)]Cloth_UN("布料",int)=0
-        
-       
-       
-
-       /* [Enum(Off, 0, On, 1)] _ZWrite("ZWrite", Float) = 0
-        [KeywordEnum(None,Add,Multiply)] _Overlay("Overlay mode", Float) = 0
-		[Enum(UnityEngine.Rendering.CompareFunction)] _ZTest("ZTest", Float) = 4
-		[Enum(UnityEngine.Rendering.CullMode)] _Cull("Cull Mode", Float) = 0
-		[Enum(UnityEngine.Rendering.BlendMode)] _SrcBlend("Src Blend Mode", Float) = 5
-		[Enum(UnityEngine.Rendering.BlendMode)] _DstBlend("Dst Blend Mode", Float) = 1 */
-        
-        
-       
+     
     } 
     
     SubShader
@@ -630,7 +618,6 @@ Shader "Game/human"
                 surfacepbr._refmap=_refmap;
                 surfacepbr.sampler_refmap=sampler_refmap;
                 surfacepbr.shadowcolor=_ShadowColor.rgb;
-                surfacepbr.shadowcolor1=_ShadowColor1.rgb;
                 surfacepbr.basecolor=_BaseColor.rgb;
                 surfacepbr._LUTY=_LUTY;
                 surfacepbr.aoColor=_aoColor.xyz;

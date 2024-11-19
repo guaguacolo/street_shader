@@ -34,7 +34,6 @@ struct SurfacePBR
     TextureCube _refmap;
     SAMPLER (sampler_refmap);
     half3 shadowcolor;
-    half3 shadowcolor1;
     half3 basecolor;
     half _LUTY;
     half aoColor_value;
@@ -62,15 +61,6 @@ float3 FresnalSchlickRoughness(float NV, float3 F0,float roughness)
     float s=1.0-roughness;
     return F0+(max(s.xxx,F0))*pow(1.0-NV,5.0);
 }
-
-//各向异性高光
-//偏移函数
-float3 shiftTangent(float3 T,float3 N, float Shift)
-{
-    float3 ShiftT=T+N*Shift;
-    return normalize(ShiftT);
-}
-
 float3 F_Schlick_Unreal( float3  SpecularColor, float VoH )
 {
     float Fc = pow(( 1.0f - saturate(VoH) ),5.0f);                 // 1 sub, 3 mul
@@ -98,13 +88,14 @@ float3 ScreenRimLight(SurfacePBR surfacepbr,float shadow,float posWS)
     float3 normal1InView = normalize(mul(UNITY_MATRIX_V,N));
  
     float3 characterRimLightDir = normalize(float3(surfacepbr._CharacterRimLightDirection.xy, 1));
- 
     //float viewNormaloRimLightDir = pow((1-(dot(normal1InView, characterRimLightDir)*0.5+0.5)),1)*1;
     float viewNormaloRimLightDir = (1-(dot(normal1InView, characterRimLightDir)));
     //float minBorder = surfacepbr._CharacterRimLightDirection.z + 0.5 - surfacepbr._CharacterRimLightDirection.w;
     //float maxBorder = surfacepbr._CharacterRimLightDirection.z + 0.5 + surfacepbr._CharacterRimLightDirection.w;
-    float minBorder = pow((posWS+10)/20+0.9,2) + 0.5 - max(0.3,(posWS+10)/20*2);
-    float maxBorder = pow((posWS+10)/20+0.9,2) + 0.5 + max(0.3,(posWS+10)/20*2);
+    //float minBorder = pow((posWS+10)/20+0.8,2) + 0.5 - max(0.3,(posWS+10)/20*0.01);
+    //float maxBorder = pow((posWS+10)/20+0.8,2) + 0.5 + max(0.3,(posWS+10)/20*0.01);
+    float minBorder = pow((posWS+10)/20+0.8,2) + 0.2 - surfacepbr._CharacterRimLightDirection.w;
+    float maxBorder = pow((posWS+10)/20+0.8,2) + 0.2 + surfacepbr._CharacterRimLightDirection.w;
     float rimTempValue = (viewNormaloRimLightDir - minBorder) / (maxBorder - minBorder);
     float3 rimColor2nd = smoothstep(0, 0.5, rimTempValue) * surfacepbr._CharacterRimLightColor.xyz*(-surfacepbr.posOS.z+0.1);
     return rimColor2nd;
@@ -242,7 +233,7 @@ half3 DirectBDRF_DualLobeSpecular(half roughness, half3 normalWS, half3 lightDir
                 float  _Mip=surface_pbr._Mip;
                 float  _Mip_Value=surface_pbr._Mip_Value;
   #if F0_UN             
-                F0=lerp(F0,baseColor,metalic);
+                F0=lerp(0.04,baseColor,metalic);
   #endif
     
                         
@@ -337,14 +328,13 @@ half3 DirectBDRF_DualLobeSpecular(half roughness, half3 normalWS, half3 lightDir
                 float3 aoColor=lerp(surface_pbr.aoColor,1,ao);
                        aoColor=saturate(lerp(1,aoColor,surface_pbr.aoColor_value));
                 float3 IndirectLight=(Diffuse_Indirect+Specular_Indirect)*aoColor;
-                       //IndirectLight = lerp(IndirectLight*surface_pbr.shadowcolor,IndirectLight,shadow);
-                       IndirectLight=IndirectLight*surface_pbr.shadowcolor;
+                       IndirectLight = lerp(IndirectLight*surface_pbr.shadowcolor,IndirectLight,shadow);
  //屏幕侧面光     
                 float3 ScreenRimcol=ScreenRimLight(surface_pbr,shadow,posWS);
  //最终光照
                 
                 float3 Finalcolor=0;
-                Finalcolor.xyz=((DirectLight+IndirectLight)+ScreenRimcol);
+                Finalcolor.xyz=((DirectLight+IndirectLight)+ScreenRimcol)/*shadow*/;
                 return Finalcolor;
 
             }
