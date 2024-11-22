@@ -7,7 +7,7 @@ Shader "Game/human"
         
         _BaseMap("Base Map", 2D) = "white" {}
         [Hdr] _BaseColor("Base Color", Color) = (1,1,1,1)
-        _ShadowColor("Shadow Color", Color) = (1,1,1,1)
+        _ShadowColor("暗部颜色修正", Color) = (1,1,1,1)
         _aoColor("ao颜色", Color) = (1,1,1,1)
          [Space(50)]
         [Hdr]_CharacterRimLightColor("侧面光颜色", Color) = (1,1,1,1)
@@ -511,7 +511,8 @@ Shader "Game/human"
             #ifdef _ADDITIONAL_LIGHTS_VERTEX
                 color += inputData.vertexLighting * brdfData.diffuse;
             #endif
-            
+                //float3 hh=SubtractDirectMainLightFromLightmap(mainLight,inputData.normalWS,inputData.bakedGI);
+                
                 return CalculateFinalColor(lightingData,surfaceData.alpha);
                 //return   lightingData.mainLightColor.xyzz ;
             }
@@ -651,7 +652,7 @@ Shader "Game/human"
                 tbnpbr.roughnessInTangent =roughnessInTangent;
                 tbnpbr.roughnessInBTangent=roughnessInBTangent;
 
-
+               
                 float4 Finalcolor=UniversalFragmentPBR0(inputData,surfaceData,surfacepbr,tbnpbr);
                 float3 test = dot(N,V);
                 #if Test_On

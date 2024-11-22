@@ -153,7 +153,7 @@ float G_GeometrySmith(float3 N, float3 L, float3 V,float Roughness)
     return GGX1*GGX2;
 }
 //预积分SSS
-float3 BentNormlsDiffuseLighting(float3 norm,float3 L,float Curvature,SurfacePBR surfacepbr)
+float3 BentNormlsDiffuseLighting(float3 norm,float3 L,float Curvature,SurfacePBR surfacepbr,float shadow)
 {
 //法线分层模糊
     float3 N_high=norm;     
@@ -165,9 +165,10 @@ float3 BentNormlsDiffuseLighting(float3 norm,float3 L,float Curvature,SurfacePBR
     half t = (1.0-0.9) * saturate(float3(dot(-rN,L),dot(-gN,L),dot(-bN,L)));
     float3 lookup=NdotL*0.5+0.5;
     float3 diffuseSSS;
-    diffuseSSS.r=SAMPLE_TEXTURE2D(surfacepbr._SSSLUT,surfacepbr.sampler_SSSLUT,float2(lerp(0.002,0.998,(lookup.r)),Curvature*surfacepbr._LUTY)).r;
-    diffuseSSS.g=SAMPLE_TEXTURE2D(surfacepbr._SSSLUT,surfacepbr.sampler_SSSLUT,float2(lerp(0.002,0.998,(lookup.g)),Curvature*surfacepbr._LUTY)).g;
-    diffuseSSS.b=SAMPLE_TEXTURE2D(surfacepbr._SSSLUT,surfacepbr.sampler_SSSLUT,float2(lerp(0.002,0.998,(lookup.b)),Curvature*surfacepbr._LUTY)).b;
+    Curvature*=surfacepbr._LUTY;
+    diffuseSSS.r=SAMPLE_TEXTURE2D(surfacepbr._SSSLUT,surfacepbr.sampler_SSSLUT,float2(lerp(0.002,0.998,(lookup.r)* shadow),Curvature)).r;
+    diffuseSSS.g=SAMPLE_TEXTURE2D(surfacepbr._SSSLUT,surfacepbr.sampler_SSSLUT,float2(lerp(0.002,0.998,(lookup.g)* shadow),Curvature)).g;
+    diffuseSSS.b=SAMPLE_TEXTURE2D(surfacepbr._SSSLUT,surfacepbr.sampler_SSSLUT,float2(lerp(0.002,0.998,(lookup.b)* shadow),Curvature)).b;
     return diffuseSSS*(1+t);
 }
 float2  EnvBRDFApprox(float Roughness,float NoV)
@@ -233,16 +234,18 @@ half3 DirectBDRF_DualLobeSpecular(half roughness, half3 normalWS, half3 lightDir
                 float  _Mip=surface_pbr._Mip;
                 float  _Mip_Value=surface_pbr._Mip_Value;
   #if F0_UN             
-                F0=lerp(0.04,baseColor,metalic);
+                F0=lerp((float3)0.04,baseColor,metalic);
   #endif
     
-                        
+  //阴影
+  //计算阴影
+  float3 shadow=light.distanceAttenuation * light.shadowAttenuation;                      
  //SSS 预积分
                 //Curvature
                 float  deltaWorldNormal=length(fwidth(normal));
                 float  deltaWorldPos = length(fwidth(posWS));
                 float  curvature = (deltaWorldNormal/deltaWorldPos);
-                float3 SSSNL=BentNormlsDiffuseLighting(normal,L,curvature,surface_pbr);
+                float3 SSSNL=BentNormlsDiffuseLighting(normal,L,curvature,surface_pbr,shadow);
                
  
  //HDRP G
@@ -281,18 +284,8 @@ half3 DirectBDRF_DualLobeSpecular(half roughness, half3 normalWS, half3 lightDir
  //数值拟合
                 float2 env_brdf= EnvBRDFApprox(roughness,NV);
                 float3 Specular_Indirect =EnvSpeculaiPrefilted*(F_IndirectLight*env_brdf.r+env_brdf.g);
- //阴影
- //计算阴影
-                float3 shadow=light.distanceAttenuation * light.shadowAttenuation;
-                //Diffuse_Indirect=lerp(Diffuse_Indirect*surface_pbr.shadowcolor,Diffuse_Indirect,shadow);
- //投影SSS
-   /* float  lightpos=_MainLightPosition;
-    float  shadowcoo=light.shadowAttenuation;
-    float  shadowcoo2=clamp(0.1,1,shadowcoo );
-    float  deltashadow=saturate(length(fwidth(shadowcoo)));
-    float  shadowcoo1=1.0f/(shadowcoo2*normalize(_MainLightPosition-posWS));
-    //float3 SSSshadow=SAMPLE_TEXTURE2D(surface_pbr._SSSLUT,surface_pbr.sampler_SSSLUT,float2(shadowcoo,shadowcoo1));
-    float3 SSSshadow=deltashadow*surface_pbr.aoColor;*/
+ 
+               
  //直接光 高光
                 float  numerator= D*G*F_Unreal;
                 float  denominator=max(4*NV*NL,0.001);
@@ -304,7 +297,7 @@ half3 DirectBDRF_DualLobeSpecular(half roughness, half3 normalWS, half3 lightDir
  //虚幻 高光
        #if RENDER_Unreal
                        specular= D*vis*F;
-                       specular=saturate(specular_double*0.15+specular*0.85);
+                       specular=saturate(specular_double*0.25+specular*0.75);
        #endif
        #if HAIR_RENDER
                        specular= v*F;
@@ -321,18 +314,18 @@ half3 DirectBDRF_DualLobeSpecular(half roughness, half3 normalWS, half3 lightDir
         #endif
  //皮肤直接光
                 float3 Diffuse=kd*baseColor;//没有除以PI
-                float3 DirectLight = (Diffuse+ specular)* radiance *NL*surface_pbr.basecolor ;
-                DirectLight = lerp(DirectLight*surface_pbr.shadowcolor,DirectLight,shadow);
+                float3 DirectLight = (Diffuse+ specular)* radiance *NL*surface_pbr.basecolor*shadow ;
+                       //DirectLight = lerp(DirectLight*surface_pbr.shadowcolor,DirectLight,shadow);
  //ao
                        ao=smoothstep(0,1,ao);
                 float3 aoColor=lerp(surface_pbr.aoColor,1,ao);
                        aoColor=saturate(lerp(1,aoColor,surface_pbr.aoColor_value));
-                float3 IndirectLight=(Diffuse_Indirect+Specular_Indirect)*aoColor;
-                       IndirectLight = lerp(IndirectLight*surface_pbr.shadowcolor,IndirectLight,shadow);
+                float3 IndirectLight=(Diffuse_Indirect+Specular_Indirect)*aoColor*surface_pbr.shadowcolor;
+                       //IndirectLight = lerp(IndirectLight*surface_pbr.shadowcolor,IndirectLight,shadow);
  //屏幕侧面光     
                 float3 ScreenRimcol=ScreenRimLight(surface_pbr,shadow,posWS);
  //最终光照
-                
+               
                 float3 Finalcolor=0;
                 Finalcolor.xyz=((DirectLight+IndirectLight)+ScreenRimcol)/*shadow*/;
                 return Finalcolor;
