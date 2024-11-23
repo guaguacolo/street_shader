@@ -1,6 +1,6 @@
 using UnityEditor.Rendering;
 using UnityEngine.Rendering;
-using UnityEngine.Rendering.Universal;  // Ê¹ÓÃ URP ÃüÃû¿Õ¼ä
+using UnityEngine.Rendering.Universal;  // Ê¹ï¿½ï¿½ URP ï¿½ï¿½ï¿½ï¿½ï¿½Õ¼ï¿½
 using UnityEngine;
 
 namespace UnityEditor.Rendering.Universal
@@ -27,7 +27,7 @@ namespace UnityEditor.Rendering.Universal
     //     }
     // }
     //
-       class BaseEditor<T> : Editor
+       class HDBaseEditor<T> : Editor
        where T : UnityObject
     {
         internal PropertyFetcher<T> properties { get; private set; }

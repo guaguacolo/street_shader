@@ -6,13 +6,13 @@ using UnityEngine.Rendering.Universal;
 namespace UnityEditor.Rendering.Universal
 {
     
-    [CustomEditor(typeof(Material))]
-    partial class DiffusionProfileSettingsEditor : BaseEditor<DiffusionProfileSettings>
+    [CustomEditor(typeof(DiffusionProfileSettings))]
+    partial class DiffusionProfileSettingsEditor : HDBaseEditor<DiffusionProfileSettings>
     {
         sealed class Profile
         {
             internal SerializedProperty self;
-            internal Material           objReference;
+            internal DiffusionProfile   objReference;
             internal SerializedProperty scatteringDistance;
             internal SerializedProperty transmissionTint;
             internal SerializedProperty texturingMode;
@@ -42,25 +42,28 @@ namespace UnityEditor.Rendering.Universal
         Material m_ProfileMaterial;
         Material m_TransmittanceMaterial;
 
-        protected  void OnEnable()
+        protected override void OnEnable()
         {
-            if (m_Profile == null)
-            {
-                m_Profile = new Profile();
-            }
-
+            base.OnEnable();
             // These shaders don't need to be reference by RenderPipelineResource as they are not use at runtime
-            m_ProfileMaterial       = CoreUtils.CreateEngineMaterial("Hidden/SSS/DrawDiffusionProfile");
-            m_TransmittanceMaterial = CoreUtils.CreateEngineMaterial("Hidden/SSS/DrawTransmittanceGraph");
+            m_ProfileMaterial       = CoreUtils.CreateEngineMaterial("Hidden/HDRP/DrawDiffusionProfile");
+            m_TransmittanceMaterial = CoreUtils.CreateEngineMaterial("Hidden/HDRP/DrawTransmittanceGraph");
+            var serializedProfile = properties.Find(x => x.profile);
+            var rp = new RelativePropertyFetcher<DiffusionProfile>(serializedProfile);
 
-            var serializedProfile = serializedObject.FindProperty("profile");
-            var scatteringDistance = serializedProfile.FindPropertyRelative("scatteringDistance");
-            var transmissionTint = serializedProfile.FindPropertyRelative("transmissionTint");
-            var texturingMode = serializedProfile.FindPropertyRelative("texturingMode");
-            var transmissionMode = serializedProfile.FindPropertyRelative("transmissionMode");
-            var thicknessRemap = serializedProfile.FindPropertyRelative("thicknessRemap");
-            var worldScale = serializedProfile.FindPropertyRelative("worldScale");
-            var ior = serializedProfile.FindPropertyRelative("ior");
+            m_Profile = new Profile
+            {
+                self = serializedProfile,
+                objReference = m_Target.profile,
+
+                scatteringDistance = rp.Find(x => x.scatteringDistance),
+                transmissionTint = rp.Find(x => x.transmissionTint),
+                texturingMode = rp.Find(x => x.texturingMode),
+                transmissionMode = rp.Find(x => x.transmissionMode),
+                thicknessRemap = rp.Find(x => x.thicknessRemap),
+                worldScale = rp.Find(x => x.worldScale),
+                ior = rp.Find(x => x.ior)
+            };
 
             Undo.undoRedoPerformed += UpdateProfile;
         }
@@ -120,21 +123,18 @@ namespace UnityEditor.Rendering.Universal
 
                 serializedObject.ApplyModifiedProperties();
                 m_Target.UpdateCache(); 
-                if (profile.objReference != null)
+               /* if (profile.objReference != null)
                 {
                     EditorUtility.SetDirty(profile.objReference);
-                }
+                }*/
                 // NOTE: We cannot change only upon scope changed since there is no callback when Reset is triggered for Editor and the scope is not changed when Reset is called.
                 // The following operations are not super cheap, but are not overly expensive, so we instead trigger the change every time inspector is drawn.
-               /* if (scope.changed)
-                {
-                    // 手动标记对象为脏，这样 Unity 会重新计算或更新该对象
-                   
-
-                    // 如果有需要的更新逻辑，可以在这里手动调用
-                    // 例如，更新缓存或重新计算渲染设置
-                    // 假设你有自定义的更新缓存逻辑
-                }*/
+               // if (scope.changed)
+               {
+                   // Validate and update the cache for this profile only
+                   profile.objReference.Validate();
+                   m_Target.UpdateCache();
+               }
             }
 
             RenderPreview(profile);
@@ -148,37 +148,37 @@ namespace UnityEditor.Rendering.Universal
         void RenderPreview(Profile profile)
         {
             var obj = profile.objReference;
-
-            m_ProfileMaterial.SetFloat("_MaxRadius", obj.GetFloat("_MaxRadius"));
-            m_ProfileMaterial.SetVector("_ShapeParam", obj.GetVector("_ShapeParam"));
+            float r = obj.filterRadius;
+            var   S = obj.shapeParam;
+            
+            m_ProfileMaterial.SetFloat( SSSShaderID._MaxRadius,  r);
+            m_ProfileMaterial.SetVector(SSSShaderID._ShapeParam, S);
 
 
             // Draw the profile.
             //EditorGUI.DrawPreviewTexture(GUILayoutUtility.GetRect(256f, 256f), profile.profileRT, m_ProfileMaterial, ScaleMode.ScaleToFit, 1f);
-            Rect profileRect = GUILayoutUtility.GetRect(256f, 256f);
-            EditorGUI.DrawPreviewTexture(profileRect, profile.profileRT, m_ProfileMaterial, ScaleMode.ScaleToFit, 1f);
+            // Draw the profile.
+            EditorGUI.DrawPreviewTexture(GUILayoutUtility.GetRect(256f, 256f), profile.profileRT, m_ProfileMaterial, ScaleMode.ScaleToFit, 1f);
+
             EditorGUILayout.Space();
             EditorGUILayout.LabelField(s_Styles.transmittancePreview0, s_Styles.centeredMiniBoldLabel);
             EditorGUILayout.LabelField(s_Styles.transmittancePreview1, EditorStyles.centeredGreyMiniLabel);
             EditorGUILayout.LabelField(s_Styles.transmittancePreview2, EditorStyles.centeredGreyMiniLabel);
             EditorGUILayout.Space();
 
-            m_TransmittanceMaterial.SetVector("_ShapeParam", obj.GetVector("_ShapeParam"));
-            m_TransmittanceMaterial.SetColor("_TransmissionTint", obj.GetColor("_TransmissionTint"));
 
+            m_TransmittanceMaterial.SetVector(SSSShaderID._ShapeParam,       S);
+            m_TransmittanceMaterial.SetVector(SSSShaderID._TransmissionTint, obj.transmissionTint);
+            m_TransmittanceMaterial.SetVector(SSSShaderID._ThicknessRemap,   obj.thicknessRemap);
 
             // Draw the transmittance graph.
             //EditorGUI.DrawPreviewTexture(GUILayoutUtility.GetRect(16f, 16f), profile.transmittanceRT, m_TransmittanceMaterial, ScaleMode.ScaleToFit, 16f);
-            Rect transmittanceRect = GUILayoutUtility.GetRect(16f, 16f);
-            EditorGUI.DrawPreviewTexture(transmittanceRect, profile.transmittanceRT, m_TransmittanceMaterial, ScaleMode.ScaleToFit, 16f);
+            EditorGUI.DrawPreviewTexture(GUILayoutUtility.GetRect(16f, 16f), profile.transmittanceRT, m_TransmittanceMaterial, ScaleMode.ScaleToFit, 16f);
         }
 
         void UpdateProfile()
         {
-            if (m_Profile.objReference != null)
-            {
-                EditorUtility.SetDirty(m_Profile.objReference);
-            }
+            m_Target.profile.Validate();
             m_Target.UpdateCache();
         }
     }

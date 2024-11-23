@@ -1,8 +1,8 @@
-Shader "Hidden/SSS/DrawTransmittanceGraph"
+Shader "Hidden/HDRP/DrawTransmittanceGraph"
 {
     SubShader
     {
-        Tags{ "RenderPipeline" = "HDRenderPipeline" }
+        Tags{ "RenderPipeline" = "UniversalPipeline" }
         Pass
         {
             Cull   Off
