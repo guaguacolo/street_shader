@@ -198,7 +198,7 @@ namespace UnityEngine.Rendering.Universal
     }
 
     [CreateAssetMenu(menuName = "TA/Create Diffusion Profile Settings", fileName = "NewDiffusionProfileSettings")]
-    internal partial class DiffusionProfileSettings : ScriptableObject
+    public class DiffusionProfileSettings : ScriptableObject
     {
         [SerializeField]
         internal DiffusionProfile profile;

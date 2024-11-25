@@ -27,7 +27,7 @@ namespace UnityEditor.Rendering.Universal
     //     }
     // }
     //
-       class HDBaseEditor<T> : Editor
+       public class HDBaseEditor<T> : Editor
        where T : UnityObject
     {
         internal PropertyFetcher<T> properties { get; private set; }

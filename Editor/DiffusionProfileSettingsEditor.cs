@@ -7,7 +7,7 @@ namespace UnityEditor.Rendering.Universal
 {
     
     [CustomEditor(typeof(DiffusionProfileSettings))]
-    partial class DiffusionProfileSettingsEditor : HDBaseEditor<DiffusionProfileSettings>
+    public partial class DiffusionProfileSettingsEditor : HDBaseEditor<DiffusionProfileSettings>
     {
         sealed class Profile
         {
