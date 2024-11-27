@@ -21,6 +21,7 @@ float3 ComputeTransmittanceDisney(float3 S, float3 volumeAlbedo, float thickness
 
 // Performs sampling of the Normalized Burley diffusion profile in polar coordinates.
 // The result must be multiplied by the albedo.
+// 采样周围的像素然后加权平均，照亮并模糊
 float3 EvalBurleyDiffusionProfile(float r, float3 S)
 {
     float3 exp_13 = exp2(((LOG2_E * (-1.0/3.0)) * r) * S); // Exp[-S * r / 3]
@@ -29,12 +30,12 @@ float3 EvalBurleyDiffusionProfile(float r, float3 S)
     return (S * rcp(8 * PI)) * expSum; // S / (8 * Pi) * (Exp[-S * r / 3] + Exp[-S * r])
 }
 
-// https://zero-radiance.github.io/post/sampling-diffusion/
-// Performs sampling of a Normalized Burley diffusion profile in polar coordinates.
-// 'u' is the random number (the value of the CDF): [0, 1).
-// rcp(s) = 1 / ShapeParam = ScatteringDistance.
-// 'r' is the sampled radial distance, s.t. (u = 0 -> r = 0) and (u = 1 -> r = Inf).
-// rcp(Pdf) is the reciprocal of the corresponding PDF value.
+/// https://zero-radiance.github.io/post/sampling-diffusion/
+// 在极坐标中执行归一化的Burley扩散曲线的采样。 
+// 'U'是随机数（CDF的值）: [0, 1)
+// rcp(s) = 1 / ShapeParam = 散射距离.
+// 'r' 是采样的径向距离, s.t. (u = 0 -> r = 0) and (u = 1 -> r = Inf).
+// rcp(Pdf) 是相应的PDF值的倒数。
 void SampleBurleyDiffusionProfile(float u, float rcpS, out float r, out float rcpPdf)
 {
     u = 1 - u; // Convert CDF to CCDF

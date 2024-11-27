@@ -1,7 +1,7 @@
 /*
-    ¸ÃshaderµÄºËÐÄË¼Ïë£ºÏÈÑ¡¶¨ÖÐÐÄµã£¬¼ÆËãÃ¿¸öÏñËØµãµ½Õâ¸öÖÐÐÄµãµÄ¾àÀëdistance£¬²¢ÓÚ×î´ó°ë¾¶maxRadius×ö±È½Ï£»
-    ÊµÏÖÔ²»·¿í¶È¾ÍÊÇdistanceÓëmaxRadius+width×ö±È½Ï£¬²¢ÓëÖ®Ç°µÄÏà¼õ
-    ½«°üÀ¨Éî¶ÈÍ¼ÔÚÄÚµÄËùÓÐ×ø±êÏµÍ³Ò»
+    ï¿½ï¿½shaderï¿½Äºï¿½ï¿½ï¿½Ë¼ï¿½ë£ºï¿½ï¿½Ñ¡ï¿½ï¿½ï¿½ï¿½ï¿½Äµã£¬ï¿½ï¿½ï¿½ï¿½Ã¿ï¿½ï¿½ï¿½ï¿½ï¿½Øµãµ½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Äµï¿½Ä¾ï¿½ï¿½ï¿½distanceï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ë¾¶maxRadiusï¿½ï¿½ï¿½È½Ï£ï¿½
+    Êµï¿½ï¿½Ô²ï¿½ï¿½ï¿½ï¿½ï¿½È¾ï¿½ï¿½ï¿½distanceï¿½ï¿½maxRadius+widthï¿½ï¿½ï¿½È½Ï£ï¿½ï¿½ï¿½ï¿½ï¿½Ö®Ç°ï¿½ï¿½ï¿½ï¿½ï¿½
+    ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Í¼ï¿½ï¿½ï¿½Úµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ÏµÍ³Ò»
 */
 Shader "Hidden/Scanner"
 {

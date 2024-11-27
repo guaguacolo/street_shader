@@ -202,10 +202,19 @@ namespace UnityEngine.Rendering.Universal
     {
         [SerializeField]
         internal DiffusionProfile profile;
-
-        [NonSerialized] internal Vector4 worldScaleAndFilterRadiusAndThicknessRemap; // X = meters per world unit, Y = filter radius (in mm), Z = remap start, W = end - start
-        [NonSerialized] internal Vector4 shapeParamAndMaxScatterDist;                // RGB = S = 1 / D, A = d = RgbMax(D)
-        [NonSerialized] internal Vector4 transmissionTintAndFresnel0;                // RGB = color, A = fresnel0
+         //X = meters per world unit：世界单位的米数，表示一个世界单位对应多少米，用于在不同尺度下统一物体的比例。Y = filter radius (in mm)：过滤半径，单位为毫米，通常用于控制光照或其他效果的扩展范围。
+         //Z = remap start：用于重映射的起始值，可能与材质的厚度或其他物理属性相关。W = end - start：重映射的结束值，表示某个物理值的变化范围。
+        [NonSerialized] internal Vector4 _WorldScalesAndFilterRadiiAndThicknessRemaps; // X = meters per world unit, Y = filter radius (in mm), Z = remap start, W = end - start
+        //RGB = S = 1 / D：这里的 S 表示散射强度（通常是一个控制次表面散射效果的参数），D 表示散射距离的倒数，通常用于表示散射的强度与距离的关系。
+        //A = d = RgbMax(D)：A 表示最大散射距离 d，通常用于控制散射距离的最大值。
+        //该 Vector4 用于控制散射效果的形状参数及最大散射距离。
+        [NonSerialized] internal Vector4 _ShapeParamsAndMaxScatterDists;                // RGB = S = 1 / D, A = d = RgbMax(D)
+        //RGB = color：传输的颜色，通常用于设置物体的传输颜色（例如皮肤的色调或水的颜色等）。
+        //A = fresnel0：Fresnel 方程中的 F0，表示反射率的初始值，用于控制表面光泽感，特别是在表面透明的情况下。
+        //该 Vector4 用于定义物体的传输色调和 Fresnel 方程的 F0 值，影响物体的透明度和反射效果。
+        [NonSerialized] internal Vector4 _TransmissionTintsAndFresnel0;                // RGB = color, A = fresnel0
+        //这个字段的作用类似于 transmissionTintAndFresnel0，但是它是用于调试目的，通过将传输颜色设置为黑色（RGB = black），可以禁用传输效果。
+        //这通常是用来在调试过程中去除传输效果，以便更好地观察其他渲染效果的影响。
         [NonSerialized] internal Vector4 disabledTransmissionTintAndFresnel0;        // RGB = black, A = fresnel0 - For debug to remove the transmission
         [NonSerialized] internal int updateCount;
 
@@ -221,16 +230,16 @@ namespace UnityEngine.Rendering.Universal
 
         internal void UpdateCache()
         {
-            worldScaleAndFilterRadiusAndThicknessRemap = new Vector4(profile.worldScale,
+            _WorldScalesAndFilterRadiiAndThicknessRemaps = new Vector4(profile.worldScale,
                                                                      profile.filterRadius,
                                                                      profile.thicknessRemap.x,
                                                                      profile.thicknessRemap.y - profile.thicknessRemap.x);
-            shapeParamAndMaxScatterDist   = profile.shapeParam;
-            shapeParamAndMaxScatterDist.w = profile.maxScatteringDistance;
+            _ShapeParamsAndMaxScatterDists   = profile.shapeParam;
+            _ShapeParamsAndMaxScatterDists.w = profile.maxScatteringDistance;
             // Convert ior to fresnel0
             float fresnel0 = (profile.ior - 1.0f) / (profile.ior + 1.0f);
             fresnel0 *= fresnel0; // square
-            transmissionTintAndFresnel0 = new Vector4(profile.transmissionTint.r * 0.25f, profile.transmissionTint.g * 0.25f, profile.transmissionTint.b * 0.25f, fresnel0); // Premultiplied
+            _TransmissionTintsAndFresnel0 = new Vector4(profile.transmissionTint.r * 0.25f, profile.transmissionTint.g * 0.25f, profile.transmissionTint.b * 0.25f, fresnel0); // Premultiplied
             disabledTransmissionTintAndFresnel0 = new Vector4(0.0f, 0.0f, 0.0f, fresnel0);
 
             updateCount++;
@@ -246,9 +255,9 @@ namespace UnityEngine.Rendering.Universal
         /// </summary>
         public void SetDefaultParams()
         {
-            worldScaleAndFilterRadiusAndThicknessRemap = new Vector4(1, 0, 0, 1);
-            shapeParamAndMaxScatterDist                = new Vector4(16777216, 16777216, 16777216, 0);
-            transmissionTintAndFresnel0.w              = 0.04f; // Match DEFAULT_SPECULAR_VALUE defined in Lit.hlsl
+            _WorldScalesAndFilterRadiiAndThicknessRemaps = new Vector4(1, 0, 0, 1);
+            _ShapeParamsAndMaxScatterDists                = new Vector4(16777216, 16777216, 16777216, 0);
+            _TransmissionTintsAndFresnel0.w              = 0.04f; // Match DEFAULT_SPECULAR_VALUE defined in Lit.hlsl
         }
     }
 }

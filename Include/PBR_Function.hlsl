@@ -5,9 +5,10 @@
 #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/RealtimeLights.hlsl"
 #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/AmbientOcclusion.hlsl"
 #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DBuffer.hlsl"
-
+#include "Assets/_res/2 model/myshader/street_shader/Include/SSS_Function.hlsl"
 //间接光函数
 //间接光 F
+
 struct TBNpbr
 {
       float  TdotH;
@@ -189,6 +190,7 @@ inline void InitializeBRDFDataPBR(half3 albedo, half3 metalic, float ao,half3 ro
     outBRDFData.roughness = roughness;
     
 }
+
 half3 DirectBDRF_DualLobeSpecular(half roughness, half3 normalWS, half3 lightDirectionWS, half3 viewDirectionWS,SurfacePBR surfacepbr,float mask)
 {
     float3 halfDir = SafeNormalize(float3(lightDirectionWS) + float3(viewDirectionWS));
@@ -237,9 +239,15 @@ half3 DirectBDRF_DualLobeSpecular(half roughness, half3 normalWS, half3 lightDir
                 F0=lerp((float3)0.04,baseColor,metalic);
   #endif
     
+  #if _TRANSMISSION
+               float3 transmittance = subsurfaceData.transmittance;
+  #else
+               float3 transmittance = float3(0, 0, 0);
+  #endif
+    
   //阴影
   //计算阴影
-  float3 shadow=light.distanceAttenuation * light.shadowAttenuation;                      
+                float3 shadow=light.distanceAttenuation * light.shadowAttenuation;                      
  //SSS 预积分
                 //Curvature
                 float  deltaWorldNormal=length(fwidth(normal));
@@ -322,7 +330,17 @@ half3 DirectBDRF_DualLobeSpecular(half roughness, half3 normalWS, half3 lightDir
                        aoColor=saturate(lerp(1,aoColor,surface_pbr.aoColor_value));
                 float3 IndirectLight=(Diffuse_Indirect+Specular_Indirect)*aoColor*surface_pbr.shadowcolor;
                        //IndirectLight = lerp(IndirectLight*surface_pbr.shadowcolor,IndirectLight,shadow);
- //屏幕侧面光     
+ //SSS光照
+                #if defined(_SUBSURFACESCATTERING) || defined(_TRANSMISSION)
+                SubsurfaceScatteringData subsurfaceData = (SubsurfaceScatteringData)0;
+                #endif
+               /*diffR  (T -> MS -> T, same sides) 光线从一个方向入射（T），在表面散射（MS），并从同一侧以漫反射方式反射出来（T）
+                specR  (R, RR, TRT, etc)          表示各种镜面反射路径，例如一次反射（R），多次反射（RR），以及透射-反射-透射（TRT）
+                diffT  (rough T or TT, opposite sides) 意思是光线从一个方向透射进表面（T或TT），并从相对侧以漫透射方式透射出来
+                specT  (T, TT, TRRT, etc) 表示各种镜面透射路径，例如单次透射（T），双次透射（TT），以及透射-反射-透射-透射（TRRT）
+              */
+ //屏幕侧面光
+              
                 float3 ScreenRimcol=ScreenRimLight(surface_pbr,shadow,posWS);
  //最终光照
                

@@ -1,0 +1,193 @@
+// =============== Convolves transmitted radiance with the Disney diffusion profile ================
+
+//--------------------------------------------------------------------------------------------------
+// Definitions
+//--------------------------------------------------------------------------------------------------
+
+// #pragma enable_d3d11_debug_symbols
+#pragma kernel SubsurfaceScattering
+
+#include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Common.hlsl"
+#include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Packing.hlsl"
+#include "Packages/com.unity.render-pipelines.core/ShaderLibrary/SpaceFillingCurves.hlsl"
+#include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Sampling/Fibonacci.hlsl"
+#include "../../../../Shader/ShaderLibrary/Input/SubsurfaceScattering-Input.hlsl"
+#include "../../../../Shader/ShaderLibrary/Data/SubsurfaceScatteringData.hlsl"
+#include "../../../../Shader/ShaderLibrary/Material/SubsurfaceScattering.hlsl"
+
+#define GROUP_SIZE_1D         8
+#define GROUP_SIZE_2D         (GROUP_SIZE_1D * GROUP_SIZE_1D)
+#define TEXTURE_CACHE_BORDER  2
+
+UNITY_DEFINE_SUBSURFACESCATTERING_INSTANCED_PROP
+
+
+RWTexture2D<float4> _CameraFilteringTexture;
+Texture2D<float4> _IrradianceSource;
+Texture2D<float> _DepthTexture;
+
+void StoreResult(uint2 pixelCoord, float3 irradiance)
+{
+    _CameraFilteringTexture[(pixelCoord)] = float4(irradiance, 1);
+}
+
+float4 LoadSample(int2 pixelCoord)
+{
+    float4 value;
+    value.rgb = LOAD_TEXTURE2D_X(_IrradianceSource, pixelCoord).rgb;
+    value.a   = LOAD_TEXTURE2D_X(_DepthTexture,     pixelCoord).r;
+    value.a = LinearEyeDepth(value.a, _ZBufferParams);
+    return value;
+}
+
+float3 ComputeBilateralWeight(float xy2, float z, float mmPerUnit, float3 S, float rcpPdf)
+{
+    float r = sqrt(xy2 + (z * mmPerUnit) * (z * mmPerUnit));
+    float p = sqrt(xy2);
+
+    float area = rcpPdf;
+
+#if SSS_CLAMP_ARTIFACT
+    return saturate(EvalBurleyDiffusionProfile(r, S) * area);
+#else
+    return EvalBurleyDiffusionProfile(r, S) * area;
+#endif
+}
+
+// 计算次表面散射
+void EvaluateSample(uint i, uint n, int2 pixelCoord, int2 cacheOffset,
+                    float3 S, float d, float3 centerPosVS, float mmPerUnit, float pixelsPerMm,
+                    float phase, float3 tangentX, float3 tangentY, float4x4 projMatrix,
+                    inout float3 totalIrradiance, inout float3 totalWeight, float linearDepth)
+{
+    // The sample count is loop-invariant.
+    const float scale  = rcp(n);
+    const float offset = rcp(n) * 0.5;
+
+    // The phase angle is loop-invariant.
+    float sinPhase, cosPhase;
+    sincos(phase, sinPhase, cosPhase);
+
+    float r, rcpPdf;
+    SampleBurleyDiffusionProfile(i * scale + offset, d, r, rcpPdf);
+
+    float phi = SampleDiskGolden(i, n).y;
+    float sinPhi, cosPhi;
+    sincos(phi, sinPhi, cosPhi);
+
+    float sinPsi = cosPhase * sinPhi + sinPhase * cosPhi; // sin(phase + phi)
+    float cosPsi = cosPhase * cosPhi - sinPhase * sinPhi; // cos(phase + phi)
+
+    float2 vec = r * float2(cosPsi, sinPsi);
+
+    float2 position; float xy2;
+    float3 relPosVS = vec.x*tangentX + vec.y*tangentY;
+    float3 positionCS=centerPosVS=relPosVS*_SubSurfaceScatteringRange;
+    float2 positionNDC=((positionVS.XY/LinearizeDepth(FetchRawDeapth(pixelCoord)).xx*_UVToview.zw)/_UVToview.xy).xy;
+    position = pixelCoord + (int2)round((pixelsPerMm * r) * float2(cosPsi, sinPsi));
+    position =  positionNDC.xy;
+    xy2      =dot(relPosVS.xy,relPosVS.xy);
+    float3 irradiance =SAMPLE_TEXTURE2D_X(_IrradianceTexture,sampler, pixelCoord).rgb;
+    float4 textureSample = LoadSample(position);
+    if (textureSample.b > 0)
+    {
+        float  viewZ  = textureSample.a;
+        float  relZ   = viewZ - linearDepth;
+        float3 weight = ComputeBilateralWeight(xy2, relZ, mmPerUnit, S, rcpPdf);
+
+        totalIrradiance += weight * textureSample.rgb;
+        totalWeight     += weight;
+    }
+    else
+    {
+    }
+}
+
+[numthreads(GROUP_SIZE_2D,1,1)]
+void SubsurfaceScattering (uint3 dispatchThreadId : SV_DispatchThreadID, uint3 groupId : SV_GroupID, uint groupThreadId : SV_GroupThreadID)
+{
+    groupThreadId &= GROUP_SIZE_2D - 1; // Help the compiler
+    //UNITY_XR_ASSIGN_VIEW_INDEX(dispatchThreadId.z);
+
+    // 屏幕坐标
+    // TODO: insert actual code here!
+    uint2 groupCoord  = DecodeMorton2D(groupThreadId);
+    uint2 groupOffset = groupId.xy * GROUP_SIZE_1D;
+    uint2 pixelCoord  = groupOffset + groupCoord;
+    int2  cacheOffset = (int2)groupOffset - TEXTURE_CACHE_BORDER;
+
+    float3 centerIrradiance  = LOAD_TEXTURE2D_X(_IrradianceSource, pixelCoord).rgb;
+    float  centerDepth       = 0;
+
+    // DiffuseLighting.b = 0的部分直接return
+    bool   passedStencilTest = TestLightingForSSS(centerIrradiance);
+    if (passedStencilTest)
+    {
+        centerDepth = LOAD_TEXTURE2D_X(_DepthTexture, pixelCoord).r;
+    }
+    else
+    {
+        return;
+    }
+    //SSSData
+    //前期数据准备阶段
+    SSSData sss_data;
+    PositionInputs posInput = GetPositionInput(pixelCoord, _ScreenSize.zw);
+    float4 sssBuffer = LOAD_TEXTURE2D_X(_SSSBufferTexture, posInput.positionSS);
+    sss_data.diffuseColor   = sssBuffer.rgb;
+    sss_data.subsurfaceMask = sssBuffer.a;
+
+    float  distScale     = subsurfaceMask;
+    float3 S             = _ShapeParamsAndMaxScatterDists.rgb;
+    float  d             = _ShapeParamsAndMaxScatterDists.a;
+    float  metersPerUnit = _WorldScalesAndFilterRadiiAndThicknessRemaps.x;
+    float  filterRadius  = _WorldScalesAndFilterRadiiAndThicknessRemaps.y;
+
+    // SSS Mask = 0直接return
+    if (distScale == 0)
+    {
+        StoreResult(pixelCoord, centerIrradiance);
+        return;
+    }
+
+    float2 centerPosNDC = posInput.positionNDC;
+    float2 cornerPosNDC = centerPosNDC + 0.5 * _ScreenSize.zw;
+    float3 centerPosVS  = ComputeViewSpacePosition(centerPosNDC, centerDepth, _InvProjMatrix);
+    float3 cornerPosVS  = ComputeViewSpacePosition(cornerPosNDC, centerDepth, _InvProjMatrix);
+
+    float mmPerUnit  = MILLIMETERS_PER_METER * (metersPerUnit * rcp(distScale));
+    float unitsPerMm = rcp(mmPerUnit);
+
+    float unitsPerPixel = max(0.0001f, 2 * abs(cornerPosVS.x - centerPosVS.x));
+    float pixelsPerMm   = rcp(unitsPerPixel) * unitsPerMm;
+
+    //  filterArea < 1 / 4
+    float filterArea   = PI * Sq(filterRadius * pixelsPerMm);
+    uint  sampleCount  = (uint)(filterArea * rcp(SSS_PIXELS_PER_SAMPLE));
+    uint  sampleBudget = (uint)32;
+
+    float4x4 viewMatrix, projMatrix;
+    GetLeftHandedViewSpaceMatrices(viewMatrix, projMatrix);
+
+    float3 normalVS = float3(0, 0, 0);
+    float3 tangentX = float3(0, 0, 0);
+    float3 tangentY = float3(0, 0, 0);
+
+    float phase = TWO_PI * GenerateHashedRandomFloat(uint3(pixelCoord, (uint)(centerDepth * 16777216)));
+
+    uint n = min(sampleCount, sampleBudget);
+    float3 centerWeight    = 0;
+    float3 totalIrradiance = 0;
+    float3 totalWeight     = 0;
+    float linearDepth = LinearEyeDepth(centerDepth, _ZBufferParams);
+    for (uint i = 0; i < n; i++)
+    {
+        // Integrate over the image or tangent plane in the view space.
+        EvaluateSample(i, n, pixelCoord, cacheOffset,
+                       S, d, centerPosVS, mmPerUnit, pixelsPerMm,
+                       phase, tangentX, tangentY, projMatrix,
+                       totalIrradiance, totalWeight, linearDepth);
+    }
+    totalWeight = max(totalWeight, FLT_MIN);
+    StoreResult(pixelCoord, float3(totalIrradiance / totalWeight));
+}

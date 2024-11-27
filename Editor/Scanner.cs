@@ -9,271 +9,90 @@ public class Scanner : ScriptableRendererFeature
     class ScannerPass : ScriptableRenderPass
     {
         #region 字段和属性
-
-        private Material _material;
-
-        private Gradient _circleColor;
-
-        private Gradient CircleColor
-        {
-            get => _circleColor;
-            set
-            {
-                if (_circleColor != value)
-                {
-                    _circleColor = value;
-                    Texture2D gradientMap = new Texture2D(128, 1);
-                    // gradientMap.name = "GradientMap";
-                    for (int i = 0; i < 128; i++)
-                    {
-                        gradientMap.SetPixel(i, 0, _circleColor.Evaluate((float)i / 128.0f));
-                    }
-
-                    gradientMap.Apply();
-                    _material.SetTexture(GradientTexPara, gradientMap);
-                }
-            }
-        }
-
-        private Color _lineColor;
-
-        private Color LineColor
-        {
-            get => _lineColor;
-            set
-            {
-                if (_lineColor != value)
-                {
-                    _lineColor = value;
-                    _material.SetColor(LineColorPara, _lineColor);
-                }
-            }
-        }
-
-        private Vector3 _centerPos;
-
-        private Vector3 CenterPos
-        {
-            get => _centerPos;
-            set
-            {
-                if (_centerPos != value)
-                {
-                    _centerPos = value;
-                    _material.SetVector(CenterPosPara, _centerPos);
-                }
-            }
-        }
-
-        private float _width;
-
-        private float Width
-        {
-            get => _width;
-            set
-            {
-                if (_width != value)
-                {
-                    _width = value;
-                    _material.SetFloat(WidthPara, _width);
-                }
-            }
-        }
-
-        private float _bias;
-
-        private float Bias
-        {
-            get => _bias;
-            set
-            {
-                if (_bias != value)
-                {
-                    _bias = value;
-                    _material.SetFloat(BiasPara, _bias);
-                }
-            }
-        }
-
-        private bool _isPoint;
-
-        private bool IsPoint
-        {
-            get => _isPoint;
-            set
-            {
-                if (_isPoint != value)
-                {
-                    _isPoint = value;
-                    if (_isPoint)
-                    {
-                        _material.EnableKeyword("ISPOINT_ON");
-                    }
-                    else
-                    {
-                        _material.DisableKeyword("ISPOINT_ON");
-                    }
-                }
-            }
-        }
-
-        private bool _lineHor;
-
-        private bool LineHor
-        {
-            get => _lineHor;
-            set
-            {
-                if (_lineHor != value)
-                {
-                    _lineHor = value;
-                    if (_lineHor)
-                    {
-                        _material.EnableKeyword("LINEHOR_ON");
-                    }
-                    else
-                    {
-                        _material.DisableKeyword("LINEHOR_ON");
-                    }
-                }
-            }
-        }
-
-        private bool _lineVer;
-
-        private bool LineVer
-        {
-            get => _lineVer;
-            set
-            {
-                if (_lineVer != value)
-                {
-                    _lineVer = value;
-                    if (_lineVer)
-                    {
-                        _material.EnableKeyword("LINEVER_ON");
-                    }
-                    else
-                    {
-                        _material.DisableKeyword("LINEVER_ON");
-                    }
-                }
-            }
-        }
-
-        private float _gridWidth;
-
-        private float GridWidth
-        {
-            get => _gridWidth;
-            set
-            {
-                if (_gridWidth != value)
-                {
-                    _gridWidth = value;
-                    _material.SetFloat(GridWidthPara, _gridWidth);
-                }
-            }
-        }
-
-        private float _gridScale;
-
-        private float GridScale
-        {
-            get => _gridScale;
-            set
-            {
-                if (_gridScale != value)
-                {
-                    _gridScale = value;
-                    _material.SetFloat(GridScalePara, _gridScale);
-                }
-            }
-        }
-
-        private bool _changeSaturation;
-
-        private bool ChangeSaturation
-        {
-            get => _changeSaturation;
-            set
-            {
-                if (_changeSaturation != value)
-                {
-                    _changeSaturation = value;
-                    if (_changeSaturation)
-                    {
-                        _material.EnableKeyword("CHANGE_SATURATION_ON");
-                    }
-                    else
-                    {
-                        _material.DisableKeyword("CHANGE_SATURATION_ON");
-                    }
-                }
-            }
-        }
-
-        private float _circleMinAlpha;
-
-        private float CircleMinAlpha
-        {
-            get => _circleMinAlpha;
-            set
-            {
-                if (_circleMinAlpha != value)
-                {
-                    _circleMinAlpha = value;
-                    _material.SetFloat(CircleMinAlphaPara, _circleMinAlpha);
-                }
-            }
-        }
-
-        private float _blendIntensity;
-
-        private float BlendIntensity
-        {
-            get => _blendIntensity;
-            set
-            {
-                if (_blendIntensity != value)
-                {
-                    _blendIntensity = value;
-                    _material.SetFloat(BlendIntensityPara, _blendIntensity);
-                }
-            }
-        }
-
-        private float _speed;
-
-        private float Speed
-        {
-            get => _speed;
-            set
-            {
-                if (_speed != value)
-                {
-                    _speed = value;
-                    _material.SetFloat(SpeedPara, _speed);
-                }
-            }
-        }
-
-        private float _maxRadius;
-
-        private float MaxRadius
-        {
-            get => _maxRadius;
-            set
-            {
-                if (_maxRadius != value)
-                {
-                    _maxRadius = value;
-                    _material.SetFloat(MaxRadiusPara, _maxRadius);
-                }
-            }
-        }
-
+        RTHandle m_SSSColor;
+        RTHandle m_SSSColorMSAA;
+        bool m_SSSReuseGBufferMemory;
+        // Disney SSS Model
+        //确定ComputeShader
+        ComputeShader m_SubsurfaceScatteringCS;
+        int m_SubsurfaceScatteringKernel;
+        int m_SubsurfaceScatteringKernelMSAA;
+        Material m_CombineLightingPass;
+        // End Disney SSS Model
+        // Need an extra buffer on some platforms
+        RTHandle m_SSSCameraFilteringBuffer;
+        // This is use to be able to read stencil value in compute shader
+        Material m_SSSCopyStencilForSplitLighting;
+        // List of every diffusion profile data we need
+        Vector4[]                   m_SSSShapeParamsAndMaxScatterDists;
+        Vector4[]                   m_SSSTransmissionTintsAndFresnel0;
+        Vector4[]                   m_SSSDisabledTransmissionTintsAndFresnel0;
+        Vector4[]                   m_SSSWorldScalesAndFilterRadiiAndThicknessRemaps;
+        uint[]                      m_SSSDiffusionProfileHashes;
+        int[]                       m_SSSDiffusionProfileUpdate;
+        DiffusionProfileSettings[]  m_SSSSetDiffusionProfiles;
+        DiffusionProfileSettings    m_SSSDefaultDiffusionProfile;
+        int                         m_SSSActiveDiffusionProfileCount;
+        uint                        m_SSSTexturingModeFlags;        // 1 bit/profile: 0 = PreAndPostScatter, 1 = PostScatter
+        uint                        m_SSSTransmissionFlags;         // 1 bit/profile: 0 = regular, 1 = thin
         #endregion
+        void DestroySSSBuffers()
+        {
+            RTHandles.Release(m_SSSColorMSAA);
+            RTHandles.Release(m_SSSCameraFilteringBuffer);
+            if (!m_SSSReuseGBufferMemory)
+            {
+                RTHandles.Release(m_SSSColor);
+            }
+        }
+
+        RTHandle GetSSSBuffer()
+        {
+            return m_SSSColor;
+        }
+
+        RTHandle GetSSSBufferMSAA()
+        {
+            return m_SSSColorMSAA;
+        }
+
+        void InitializeSubsurfaceScattering()
+        {
+            // Disney SSS (compute + combine)
+            //确定computeID
+            string kernelName = "SubsurfaceScattering";
+            //调用ComputeShader 或者开放窗口
+            m_SubsurfaceScatteringCS = Resources.Load<ComputeShader>("SubsurfaceScattering");
+            //m_SubsurfaceScatteringCS = defaultResources.shaders.subsurfaceScatteringCS;
+            //确定computID
+            //确定ComputeShader   shader中函数调用
+            m_SubsurfaceScatteringKernel = m_SubsurfaceScatteringCS.FindKernel(kernelName);
+            //用于组合光照的着色器 Pixel Shader 调用 comuputeshader
+            m_CombineLightingPass = CoreUtils.CreateEngineMaterial("_res/2 model/myshader/street_shader/SubsurfaceScattering/SubsurfaceScattering");
+            m_CombineLightingPass.SetInt(SSSShaderID._StencilRef, (int)StencilUsage.SubsurfaceScattering);
+            m_CombineLightingPass.SetInt(SSSShaderID._StencilMask, (int)StencilUsage.SubsurfaceScattering);
+
+            m_SSSCopyStencilForSplitLighting = CoreUtils.CreateEngineMaterial(defaultResources.shaders.copyStencilBufferPS);
+            m_SSSCopyStencilForSplitLighting.SetInt(SSSShaderID._StencilRef, (int)StencilUsage.SubsurfaceScattering);
+            m_SSSCopyStencilForSplitLighting.SetInt(SSSShaderID._StencilMask, (int)StencilUsage.SubsurfaceScattering);
+
+            m_SSSDefaultDiffusionProfile = defaultResources.assets.defaultDiffusionProfile;
+
+            // fill the list with the max number of diffusion profile so we dont have
+            // the error: exceeds previous array size (5 vs 3). Cap to previous size.
+            m_SSSShapeParamsAndMaxScatterDists = new Vector4[DiffusionProfileConstants.DIFFUSION_PROFILE_COUNT];
+            m_SSSTransmissionTintsAndFresnel0 = new Vector4[DiffusionProfileConstants.DIFFUSION_PROFILE_COUNT];
+            m_SSSDisabledTransmissionTintsAndFresnel0 = new Vector4[DiffusionProfileConstants.DIFFUSION_PROFILE_COUNT];
+            m_SSSWorldScalesAndFilterRadiiAndThicknessRemaps = new Vector4[DiffusionProfileConstants.DIFFUSION_PROFILE_COUNT];
+            m_SSSDiffusionProfileHashes = new uint[DiffusionProfileConstants.DIFFUSION_PROFILE_COUNT];
+            m_SSSDiffusionProfileUpdate = new int[DiffusionProfileConstants.DIFFUSION_PROFILE_COUNT];
+            m_SSSSetDiffusionProfiles = new DiffusionProfileSettings[DiffusionProfileConstants.DIFFUSION_PROFILE_COUNT];
+
+            // If ray tracing is supported by the asset, do the initialization
+            //删除rayTracing相关代码
+           /* if (rayTracingSupported)
+                InitializeSubsurfaceScatteringRT();*/
+        }
 
         public ScannerPass()
         {
@@ -302,27 +121,79 @@ public class Scanner : ScriptableRendererFeature
             Speed = speed;
             MaxRadius = maxRadius;
         }
-
-        public override void OnCameraSetup(CommandBuffer cmd, ref RenderingData renderingData)
-        {
-            ConfigureTarget(renderingData.cameraData.renderer.cameraColorTarget);
-        }
-
+        //绘制到了不透明物体的前面
         public override void Execute(ScriptableRenderContext context, ref RenderingData renderingData)
-        {
-            CommandBuffer cmd = CommandBufferPool.Get("Scan");
-            int tempRT = Shader.PropertyToID("Depth2WorldPosTempRT");
-            RenderTextureDescriptor desc = renderingData.cameraData.cameraTargetDescriptor;
-            cmd.GetTemporaryRT(tempRT, desc);
-
-            cmd.Blit(colorAttachment, tempRT, _material, 0);
-            cmd.Blit(tempRT, colorAttachment);
-            context.ExecuteCommandBuffer(cmd);
-
-            cmd.ReleaseTemporaryRT(tempRT);
-            CommandBufferPool.Release(cmd);
-        }
-
+         {
+             
+             Vector4 scatteringDistance = (Vector4)m_diffusionProfile.profile.scatteringDistance;
+             float worldScale = m_diffusionProfile.profile.worldScale;
+             float filterRadius = m_diffusionProfile.profile.filterRadius;
+             Vector4 shapeParam = new Vector4(m_diffusionProfile.profile.shapeParam.x, m_diffusionProfile.profile.shapeParam.y, m_diffusionProfile.profile.shapeParam.z, Mathf.Max(scatteringDistance.x, scatteringDistance.y, scatteringDistance.z));
+             Color transmissionTint = m_diffusionProfile.profile.transmissionTint;
+             Vector2 thicknessRemapValue = m_diffusionProfile.profile.thicknessRemap;
+             float ior = m_diffusionProfile.profile.ior;
+             float fresnel0 = ((ior - 1.0f) * (ior - 1.0f)) / ((ior + 1.0f) * (ior + 1.0f));
+             m_diffusionProfile.transmissionTintAndFresnel0 = new Vector4(transmissionTint.r * 0.25f, transmissionTint.g * 0.25f, transmissionTint.b * 0.25f, fresnel0);
+             m_diffusionProfile.worldScaleAndFilterRadiusAndThicknessRemap = new Vector4(worldScale, filterRadius, thicknessRemapValue.x, thicknessRemapValue.y - thicknessRemapValue.x);
+             m_diffusionProfile.shapeParamAndMaxScatterDist = shapeParam;
+             m_diffusionProfile.disabledTransmissionTintAndFresnel0 = new Vector4(0.0f, 0.0f, 0.0f, fresnel0);
+         
+             SortingCriteria sortingCriteria = renderingData.cameraData.defaultOpaqueSortFlags;
+             DrawingSettings drawingSettings = CreateDrawingSettings(subsurfaceScatteringLightingTagId, ref renderingData, sortingCriteria);
+         
+             CommandBuffer cmd = CommandBufferPool.Get();
+             cmd.SetGlobalVector("_TransmissionTintsAndFresnel0", m_diffusionProfile.transmissionTintAndFresnel0);
+             cmd.SetGlobalVector("_WorldScalesAndFilterRadiiAndThicknessRemaps", m_diffusionProfile.worldScaleAndFilterRadiusAndThicknessRemap);
+             cmd.SetGlobalVector("_ShapeParamsAndMaxScatterDists", m_diffusionProfile.shapeParamAndMaxScatterDist);
+         
+             using(new ProfilingScope(cmd, new ProfilingSampler("Subsurface Scattering")))
+             {
+                 cmd.SetRenderTarget(m_subsurfaceColorBuffer, m_renderer.cameraDepthTarget);
+                 cmd.ClearRenderTarget(true, true, renderingData.cameraData.camera.backgroundColor);
+                 context.ExecuteCommandBuffer(cmd);
+                 cmd.Clear();
+                 context.DrawRenderers(renderingData.cullResults, ref drawingSettings, ref m_FilteringSettings);
+             }
+             using(new ProfilingScope(cmd, new ProfilingSampler("Subsurface Scattering Pre Depth")))
+             {
+                 cmd.SetRenderTarget(depthBufferTarget);
+                 cmd.ClearRenderTarget(true, true, Color.clear);
+                 context.ExecuteCommandBuffer(cmd);
+                 cmd.Clear();
+                 context.DrawRenderers(renderingData.cullResults, ref drawingSettings, ref m_FilteringSettings);
+             }
+             using(new ProfilingScope(cmd, new ProfilingSampler("SubsurfaceScattering")))
+             {
+                 int m_kernel = m_SubsurfaceScatteringCS.FindKernel("SubsurfaceScattering");
+                 int cameraFilterBuffer = Shader.PropertyToID("cameraFilterBuffer");
+                 RenderTargetIdentifier cameraFilterBufferID = new RenderTargetIdentifier(cameraFilterBuffer);
+                 RenderTextureDescriptor decs = renderingData.cameraData.cameraTargetDescriptor;
+                 decs.enableRandomWrite = true;
+                 cmd.GetTemporaryRT(cameraFilterBuffer, decs);
+         
+                 cmd.SetRenderTarget(cameraFilterBufferID, m_renderer.cameraDepthTarget);
+                 cmd.ClearRenderTarget(false, true, Color.clear);
+                 context.ExecuteCommandBuffer(cmd);
+                 cmd.Clear();
+         
+                 cmd.SetComputeTextureParam(m_SubsurfaceScatteringCS, m_kernel, ShaderIDs._IrradianceSource, m_subsurfaceColorBuffer[1]);
+                 cmd.SetComputeTextureParam(m_SubsurfaceScatteringCS, m_kernel, ShaderIDs._SSSBufferTexture, m_subsurfaceColorBuffer[2]);
+                 cmd.SetComputeTextureParam(m_SubsurfaceScatteringCS, m_kernel, ShaderIDs._DepthTexture, depthBufferTarget);
+                 cmd.SetComputeTextureParam(m_SubsurfaceScatteringCS, m_kernel, ShaderIDs._CameraFilteringBuffer, cameraFilterBufferID);
+                 cmd.DispatchCompute(m_SubsurfaceScatteringCS, m_kernel, (Screen.width + 7) / 8, (Screen.height + 7) / 8, 1);
+         
+                 cmd.SetRenderTarget(m_renderer.cameraColorTarget, m_renderer.cameraDepthTarget);
+                 context.ExecuteCommandBuffer(cmd);
+                 cmd.Clear();
+                 cmd.SetGlobalTexture(ShaderIDs._IrradianceSource, cameraFilterBufferID);
+                 cmd.SetViewProjectionMatrices(Matrix4x4.identity, Matrix4x4.identity);
+                 cmd.DrawProcedural(Matrix4x4.identity, m_material, 0, MeshTopology.Triangles, 3, 1);
+                 cmd.SetViewProjectionMatrices(renderingData.cameraData.GetViewMatrix(), renderingData.cameraData.GetProjectionMatrix());
+             }
+             context.ExecuteCommandBuffer(cmd);
+             CommandBufferPool.Release(cmd);
+         }
+       
         public override void OnCameraCleanup(CommandBuffer cmd)
         {
         }
