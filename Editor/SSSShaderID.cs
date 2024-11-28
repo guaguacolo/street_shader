@@ -14,4 +14,9 @@ public static class SSSShaderID
     public static readonly int _StencilRef = Shader.PropertyToID("_StencilRef");
     public static readonly int _StencilCmp = Shader.PropertyToID("_StencilCmp");
     public static readonly int _StencilMask = Shader.PropertyToID("_StencilMask");
+    public static readonly int _DepthTexture = Shader.PropertyToID("_DepthTexture");
+    public static readonly int _IrradianceSource = Shader.PropertyToID("_IrradianceSource");
+    public static readonly int _SSSBufferTexture = Shader.PropertyToID("_SSSBufferTexture");
+    public static readonly int _CameraFilteringBuffer = Shader.PropertyToID("_CameraFilteringBuffer");
+   
 }

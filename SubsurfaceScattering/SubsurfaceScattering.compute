@@ -8,23 +8,21 @@
 #pragma kernel SubsurfaceScattering
 
 #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Common.hlsl"
-#include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Packing.hlsl"
-#include "Packages/com.unity.render-pipelines.core/ShaderLibrary/SpaceFillingCurves.hlsl"
-#include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Sampling/Fibonacci.hlsl"
-#include "../../../../Shader/ShaderLibrary/Input/SubsurfaceScattering-Input.hlsl"
-#include "../../../../Shader/ShaderLibrary/Data/SubsurfaceScatteringData.hlsl"
-#include "../../../../Shader/ShaderLibrary/Material/SubsurfaceScattering.hlsl"
-
+#include "Packages/com.unity.render-pipelines.core/ShaderLibrary/ImageBasedLighting.hlsl"
+#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
+#include "Assets/_res/2 model/myshader/street_shader/SubsurfaceScattering/SubsurfaceScattering.hlsl"
+#include "Assets/_res/2 model/myshader/street_shader/SubsurfaceScattering/SpaceFillingCurves.hlsl"
 #define GROUP_SIZE_1D         8
 #define GROUP_SIZE_2D         (GROUP_SIZE_1D * GROUP_SIZE_1D)
 #define TEXTURE_CACHE_BORDER  2
 
-UNITY_DEFINE_SUBSURFACESCATTERING_INSTANCED_PROP
-
+//UNITY_DEFINE_SUBSURFACESCATTERING_INSTANCED_PROP
 
 RWTexture2D<float4> _CameraFilteringTexture;
-Texture2D<float4> _IrradianceSource;
-Texture2D<float> _DepthTexture;
+Texture2D<float4>   _IrradianceSource;
+Texture2D<float>   _DepthTexture;
+float4             _ShapeParamsAndMaxScatterDists;
+float4             _WorldScalesAndFilterRadiiAndThicknessRemaps;
 
 void StoreResult(uint2 pixelCoord, float3 irradiance)
 {
@@ -80,14 +78,10 @@ void EvaluateSample(uint i, uint n, int2 pixelCoord, int2 cacheOffset,
 
     float2 vec = r * float2(cosPsi, sinPsi);
 
-    float2 position; float xy2;
-    float3 relPosVS = vec.x*tangentX + vec.y*tangentY;
-    float3 positionCS=centerPosVS=relPosVS*_SubSurfaceScatteringRange;
-    float2 positionNDC=((positionVS.XY/LinearizeDepth(FetchRawDeapth(pixelCoord)).xx*_UVToview.zw)/_UVToview.xy).xy;
+    int2 position; float xy2;
     position = pixelCoord + (int2)round((pixelsPerMm * r) * float2(cosPsi, sinPsi));
-    position =  positionNDC.xy;
-    xy2      =dot(relPosVS.xy,relPosVS.xy);
-    float3 irradiance =SAMPLE_TEXTURE2D_X(_IrradianceTexture,sampler, pixelCoord).rgb;
+    xy2      = r * r;
+
     float4 textureSample = LoadSample(position);
     if (textureSample.b > 0)
     {
@@ -129,13 +123,10 @@ void SubsurfaceScattering (uint3 dispatchThreadId : SV_DispatchThreadID, uint3 g
     {
         return;
     }
-    //SSSData
-    //前期数据准备阶段
-    SSSData sss_data;
+
     PositionInputs posInput = GetPositionInput(pixelCoord, _ScreenSize.zw);
     float4 sssBuffer = LOAD_TEXTURE2D_X(_SSSBufferTexture, posInput.positionSS);
-    sss_data.diffuseColor   = sssBuffer.rgb;
-    sss_data.subsurfaceMask = sssBuffer.a;
+    float subsurfaceMask = sssBuffer.a;
 
     float  distScale     = subsurfaceMask;
     float3 S             = _ShapeParamsAndMaxScatterDists.rgb;

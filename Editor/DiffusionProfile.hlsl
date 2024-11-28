@@ -1,12 +1,12 @@
 // ----------------------------------------------------------------------------
-// SSS/Transmittance helper
+// SSS/透射率助手
 // ----------------------------------------------------------------------------
 //#define LOG2_E 1.4427 // log2(e)
 //#define PI 3.14159265359
-// Computes the fraction of light passing through the object.
-// Evaluate Int{0, inf}{2 * Pi * r * R(sqrt(r^2 + d^2))}, where R is the diffusion profile.
-// Note: 'volumeAlbedo' should be premultiplied by 0.25.
-// Ref: Approximate Reflectance Profiles for Efficient Subsurface Scattering by Pixar (BSSRDF only).
+// 计算通过物体的光的分数。
+// 评估积分{0, inf}{2 * Pi * r * R(sqrt(r^2 + d^2))}，其中 R 是扩散曲线。
+// 注意：'volumeAlbedo' 应该预先乘以 0.25。
+// 参考：Approximate Reflectance Profiles for Efficient Subsurface Scattering by Pixar（仅限 BSSRDF）。
 float3 ComputeTransmittanceDisney(float3 S, float3 volumeAlbedo, float thickness)
 {
     // Thickness and SSS mask are decoupled for artists.

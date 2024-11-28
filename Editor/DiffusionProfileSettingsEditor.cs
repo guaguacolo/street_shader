@@ -58,8 +58,8 @@ namespace UnityEditor.Rendering.Universal
 
                 scatteringDistance = rp.Find(x => x.scatteringDistance),
                 transmissionTint = rp.Find(x => x.transmissionTint),
-                texturingMode = rp.Find(x => x.texturingMode),
-                transmissionMode = rp.Find(x => x.transmissionMode),
+                //texturingMode = rp.Find(x => x.texturingMode),
+                //transmissionMode = rp.Find(x => x.transmissionMode),
                 thicknessRemap = rp.Find(x => x.thicknessRemap),
                 worldScale = rp.Find(x => x.worldScale),
                 ior = rp.Find(x => x.ior)

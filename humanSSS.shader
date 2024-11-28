@@ -663,7 +663,7 @@ Shader "Game/humanSSS"
                  FragmentBuffer output;
                 half3 diffuseLighting;
                 half3 specularLighting;
-                SubsurfaceScatterLit(inputData, surfaceData, diffuseLighting, specularLighting);
+                //SubsurfaceScatterLit(inputData, surfaceData, diffuseLighting, specularLighting);
                 output.specluarBuffer = half4(specularLighting, surfaceData.alpha);
                 output.diffuseBuffer = half4(diffuseLighting, surfaceData.alpha);
                 output.diffuseBuffer.rgb += surfaceData.emission;
