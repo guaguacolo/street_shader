@@ -8,9 +8,9 @@ namespace UnityEngine.Rendering.Universal
     [GenerateHLSL]
     class DiffusionProfileConstants
     {
-        public const int DIFFUSION_PROFILE_COUNT      = 16; // Max. number of profiles, including the slot taken by the neutral profile
-        public const int DIFFUSION_PROFILE_NEUTRAL_ID = 0;  // Does not result in blurring
-        public const int SSS_PIXELS_PER_SAMPLE        = 4;
+        public const int DIFFUSION_PROFILE_COUNT      = 16; // 定义了最大配置文件数量，包括中性配置文件所占用的槽位，最大值为16。
+        public const int DIFFUSION_PROFILE_NEUTRAL_ID = 0;  // 定义了中性配置文件的ID，不会导致模糊处理，其值为0
+        public const int SSS_PIXELS_PER_SAMPLE        = 4;  // 定义了每个样本的像素数量，用于次表面散射处理，其值为4
     }
 
     enum DefaultSssSampleBudgetForQualityLevel
@@ -47,7 +47,7 @@ namespace UnityEngine.Rendering.Universal
         public float            ior;                        // 1.4 for skin (mean ~0.028)
 
         public Vector3          shapeParam   { get; private set; }          // RGB = shape parameter: S = 1 / D
-        public float            filterRadius { get; private set; }          // In millimeters
+        public float            filterRadius { get; private set; }          // "以毫米为单位"
         public float            maxScatteringDistance { get; private set; } // No meaningful units
 
         // Unique hash used in shaders to identify the index in the diffusion profile array
@@ -56,6 +56,7 @@ namespace UnityEngine.Rendering.Universal
         // Here we need to have one parameter in the diffusion profile parameter because the deserialization call the default constructor
         public DiffusionProfile(bool dontUseDefaultConstructor)
         {
+            //初始化数据
             ResetToDefault();
         }
 
@@ -67,16 +68,16 @@ namespace UnityEngine.Rendering.Universal
             //transmissionMode = TransmissionMode.ThinObject;
             thicknessRemap = new Vector2(0f, 5f);
             worldScale = 1f;
-            ior = 1.4f;   // 1.4 for skin (mean ~0.028)
+            ior = 1.4f;   //  ior（折射率）被初始化为 1.4f（皮肤的折射率，平均值约为 0.028）
         }
-
+        //约束参数范围 获取最大的散射距离 
         internal void Validate()
         {
             thicknessRemap.y = Mathf.Max(thicknessRemap.y, 0f);
             thicknessRemap.x = Mathf.Clamp(thicknessRemap.x, 0f, thicknessRemap.y);
             worldScale       = Mathf.Max(worldScale, 0.001f);
             ior              = Mathf.Clamp(ior, 1.0f, 2.0f);
-
+            //获取最大的散射距离  //获得采样距离r和概率分布函数的倒数rcpPdf
             UpdateKernel();
         }
 
@@ -85,15 +86,14 @@ namespace UnityEngine.Rendering.Universal
         {    
             //RGB散射距离,作为参数调节
             Vector3 sd = (Vector3)(Vector4)scatteringDistance;
-
             // Rather inconvenient to support (S = Inf).
             shapeParam = new Vector3(Mathf.Min(16777216, 1.0f / sd.x),
                                      Mathf.Min(16777216, 1.0f / sd.y),
                                      Mathf.Min(16777216, 1.0f / sd.z));
-
             //通过0.997f的cdf计算出最大的散射范围
             float cdf = 0.997f;
             maxScatteringDistance = Mathf.Max(sd.x, sd.y, sd.z);
+            // //获得采样距离r和概率分布函数的倒数rcpPdf
             filterRadius = SampleBurleyDiffusionProfile(cdf, maxScatteringDistance);
         }
 
@@ -153,10 +153,11 @@ namespace UnityEngine.Rendering.Universal
         }
 
         // https://zero-radiance.github.io/post/sampling-diffusion/
-        // Performs sampling of a Normalized Burley diffusion profile in polar coordinates.
-        // 'u' is the random number (the value of the CDF): [0, 1).
-        // rcp(s) = 1 / ShapeParam = ScatteringDistance.
-        // Returns the sampled radial distance, s.t. (u = 0 -> r = 0) and (u = 1 -> r = Inf).
+        // 在极坐标系下对归一化的 Burley 扩散轮廓进行采样。
+        // 'u' 是随机数（CDF 的值）：[0, 1)。
+        // rcp(s) = 1 / ShapeParam = ScatteringDistance。
+        // 返回采样的径向距离，使得 (u = 0 -> r = 0) 和 (u = 1 -> r = Inf)。
+        //获得采样距离r和概率分布函数的倒数rcpPdf
         static float SampleBurleyDiffusionProfile(float u, float rcpS)
         {
             u = 1 - u; // Convert CDF to CCDF
@@ -188,6 +189,7 @@ namespace UnityEngine.Rendering.Universal
     [CreateAssetMenu(menuName = "TA/Create Diffusion Profile Settings", fileName = "NewDiffusionProfileSettings")]
     public class DiffusionProfileSettings : ScriptableObject
     {
+        //其他文件调用的  参数部分  
         [SerializeField]
         public DiffusionProfile profile;
          //X = meters per world unit：世界单位的米数，表示一个世界单位对应多少米，用于在不同尺度下统一物体的比例。Y = filter radius (in mm)：过滤半径，单位为毫米，通常用于控制光照或其他效果的扩展范围。
@@ -202,7 +204,7 @@ namespace UnityEngine.Rendering.Universal
         //该 Vector4 用于定义物体的传输色调和 Fresnel 方程的 F0 值，影响物体的透明度和反射效果。
         [NonSerialized] internal Vector4 _TransmissionTintsAndFresnel0;                // RGB = color, A = fresnel0
         //这个字段的作用类似于 transmissionTintAndFresnel0，但是它是用于调试目的，通过将传输颜色设置为黑色（RGB = black），可以禁用传输效果。
-        //这通常是用来在调试过程中去除传输效果，以便更好地观察其他渲染效果的影响。
+        //归零参数，以便更好地观察其他渲染效果的影响。
         [NonSerialized] internal Vector4 disabled_TransmissionTintsAndFresnel0;        // RGB = black, A = fresnel0 - For debug to remove the transmission
         [NonSerialized] internal int updateCount;
 
@@ -210,7 +212,7 @@ namespace UnityEngine.Rendering.Universal
         {
             if (profile == null)
                 profile = new DiffusionProfile(true);
-
+            //约束参数范围 获取最大的散射距离 获得采样距离r和概率分布函数的倒数rcpPdf
             profile.Validate();
             UpdateCache();
         }
@@ -218,18 +220,19 @@ namespace UnityEngine.Rendering.Universal
 
         internal void UpdateCache()
         {
+            // 更新世界尺度、滤波半径和厚度重映射
             _WorldScalesAndFilterRadiiAndThicknessRemaps = new Vector4(profile.worldScale,
-                                                                     profile.filterRadius,
-                                                                     profile.thicknessRemap.x,
+                                                                       profile.filterRadius,
+                                                                       profile.thicknessRemap.x,
                                                                      profile.thicknessRemap.y - profile.thicknessRemap.x);
+            // 更新形状参数和最大散射距离
             _ShapeParamsAndMaxScatterDists   = profile.shapeParam;
             _ShapeParamsAndMaxScatterDists.w = profile.maxScatteringDistance;
-            // Convert ior to fresnel0
+            // 将折射率（ior）转换为 Fresnel0
             float fresnel0 = (profile.ior - 1.0f) / (profile.ior + 1.0f);
-            fresnel0 *= fresnel0; // square
+                  fresnel0 *= fresnel0; // 0.028
             _TransmissionTintsAndFresnel0 = new Vector4(profile.transmissionTint.r * 0.25f, profile.transmissionTint.g * 0.25f, profile.transmissionTint.b * 0.25f, fresnel0); // Premultiplied
             disabled_TransmissionTintsAndFresnel0 = new Vector4(0.0f, 0.0f, 0.0f, fresnel0);
-
             updateCount++;
         }
 
@@ -241,11 +244,12 @@ namespace UnityEngine.Rendering.Universal
         /// <summary>
         /// Initialize the settings for the default diffusion profile.
         /// </summary>
+        /// 初始化默认的扩散轮廓设置
         public void SetDefaultParams()
         {
-            _WorldScalesAndFilterRadiiAndThicknessRemaps = new Vector4(1, 0, 0, 1);
+            _WorldScalesAndFilterRadiiAndThicknessRemaps  = new Vector4(1, 0, 0, 1);
             _ShapeParamsAndMaxScatterDists                = new Vector4(16777216, 16777216, 16777216, 0);
-            _TransmissionTintsAndFresnel0.w              = 0.04f; // Match DEFAULT_SPECULAR_VALUE defined in Lit.hlsl
+            _TransmissionTintsAndFresnel0.w               = 0.04f; // Match DEFAULT_SPECULAR_VALUE defined in Lit.hlsl
         }
     }
 }
