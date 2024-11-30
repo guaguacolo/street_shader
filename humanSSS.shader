@@ -352,7 +352,7 @@ Shader "Game/humanSSS"
         Pass
         {
             Name "UniversalForward"
-            Tags{"LightMode"="UniversalForward"}
+            Tags{"LightMode"="UniversalForward" "SkinDiffuse"="true"}
 
             Cull Back
 			ZWrite On
@@ -477,7 +477,8 @@ Shader "Game/humanSSS"
                     MixRealtimeAndBakedGI(mainLight, inputData.normalWS, inputData.bakedGI);
                   
                 
-               lightingData.mainLightColor = PBR_Light(brdfData,mainLight,inputData.normalWS,inputData.positionWS,inputData.viewDirectionWS,surfacepbr,tbnpbr);
+               lightingData.mainLightColor = PBR_Light(brdfData,mainLight,inputData.normalWS,inputData.positionWS,
+                                                       inputData.viewDirectionWS,surfacepbr,tbnpbr,surfaceData,inputData);
               
     #if defined(_ADDITIONAL_LIGHTS)
     uint pixelLightCount = GetAdditionalLightsCount();
@@ -660,7 +661,7 @@ Shader "Game/humanSSS"
                 tbnpbr.roughnessInTangent =roughnessInTangent;
                 tbnpbr.roughnessInBTangent=roughnessInBTangent;
                
-                 FragmentBuffer output;
+                FragmentBuffer output;
                 half3 diffuseLighting;
                 half3 specularLighting;
                 //SubsurfaceScatterLit(inputData, surfaceData, diffuseLighting, specularLighting);

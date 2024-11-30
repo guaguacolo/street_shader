@@ -18,15 +18,15 @@
 
 //UNITY_DEFINE_SUBSURFACESCATTERING_INSTANCED_PROP
 
-RWTexture2D<float4> _CameraFilteringTexture;
+RWTexture2D<float4> _CameraFilteringBuffer;
 Texture2D<float4>   _IrradianceSource;
-Texture2D<float>   _DepthTexture;
-float4             _ShapeParamsAndMaxScatterDists;
-float4             _WorldScalesAndFilterRadiiAndThicknessRemaps;
-
+Texture2D<float>    _DepthTexture;
+float4              _ShapeParamsAndMaxScatterDists;
+float4              _WorldScalesAndFilterRadiiAndThicknessRemaps;
+//将计算得到的光照值存储到 _CameraFilteringBuffer 中
 void StoreResult(uint2 pixelCoord, float3 irradiance)
 {
-    _CameraFilteringTexture[(pixelCoord)] = float4(irradiance, 1);
+    _CameraFilteringBuffer[(pixelCoord)] = float4(irradiance, 1);
 }
 
 float4 LoadSample(int2 pixelCoord)
@@ -109,7 +109,7 @@ void SubsurfaceScattering (uint3 dispatchThreadId : SV_DispatchThreadID, uint3 g
     uint2 groupOffset = groupId.xy * GROUP_SIZE_1D;
     uint2 pixelCoord  = groupOffset + groupCoord;
     int2  cacheOffset = (int2)groupOffset - TEXTURE_CACHE_BORDER;
-
+    //中心点接收到的光照强度
     float3 centerIrradiance  = LOAD_TEXTURE2D_X(_IrradianceSource, pixelCoord).rgb;
     float  centerDepth       = 0;
 
@@ -126,7 +126,7 @@ void SubsurfaceScattering (uint3 dispatchThreadId : SV_DispatchThreadID, uint3 g
 
     PositionInputs posInput = GetPositionInput(pixelCoord, _ScreenSize.zw);
     float4 sssBuffer = LOAD_TEXTURE2D_X(_SSSBufferTexture, posInput.positionSS);
-    float subsurfaceMask = sssBuffer.a;
+    float  subsurfaceMask = sssBuffer.a;
 
     float  distScale     = subsurfaceMask;
     float3 S             = _ShapeParamsAndMaxScatterDists.rgb;

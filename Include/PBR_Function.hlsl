@@ -5,10 +5,22 @@
 #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/RealtimeLights.hlsl"
 #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/AmbientOcclusion.hlsl"
 #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DBuffer.hlsl"
-#include "Assets/_res/2 model/myshader/street_shader/Include/SSS_Function.hlsl"
+#include "Assets/_res/2 model/myshader/street_shader/Editor/DiffusionProfile.hlsl"
 //间接光函数
 //间接光 F
-
+struct SubsurfaceScatteringData
+{
+    float3 fresnel0;
+    float3 transmittance;
+    float subsurfaceMask;
+    float thickness;
+};
+struct FragmentBuffer
+{
+    half4 specluarBuffer : SV_TARGET1;
+    half4 diffuseBuffer : SV_TARGET2;
+    half4 sssBuffer : SV_TARGET3;
+};
 struct TBNpbr
 {
       float  TdotH;
@@ -22,10 +34,7 @@ struct TBNpbr
       float  NdotL;
       float  roughnessInTangent ;
       float  roughnessInBTangent;
-
 };
-
-
 struct SurfacePBR
 {
     Texture2D _SSSLUT;
@@ -101,8 +110,6 @@ float3 ScreenRimLight(SurfacePBR surfacepbr,float shadow,float posWS)
     float3 rimColor2nd = smoothstep(0, 0.5, rimTempValue) * surfacepbr._CharacterRimLightColor.xyz*(-surfacepbr.posOS.z+0.1);
     return rimColor2nd;
 }
-
-
 float3 F_FresnelSchlick(float HV,float3 F0)
 {
     float FC=pow(1.0-(clamp(HV,0.0,1.0)),5.0);
@@ -134,8 +141,6 @@ float D_DistributionGGX(float3 N,float3 H,float Roughness)
 // Vis = G / (4*NoL*NoV)  HDRP
 // Note: V = G / (4 * NdotL * NdotV)
 // Ref: http://jcgt.org/published/0003/02/03/paper.pdf
-
-
 float GeometryShlickGGX(float NV,float Roughness)
 {
     float r= Roughness+1.0;
@@ -212,7 +217,7 @@ half3 DirectBDRF_DualLobeSpecular(half roughness, half3 normalWS, half3 lightDir
     float3 specular_double = specularTerm * surfacepbr.Specular/*+(surfacepbr.basecolor*(float3)(surfacepbr.Specular))*/;
     return specular_double.xxx;
 }
- float3 PBR_Light(BRDFData brdfData,Light light,half3 normal, half3 posWS,half3 V,SurfacePBR surface_pbr,TBNpbr tbnpbr)
+ float3 PBR_Light(BRDFData brdfData,Light light,half3 normal, half3 posWS,half3 V,SurfacePBR surface_pbr,TBNpbr tbnpbr, SurfaceData surfaceData,InputData inputData)
 
             {
  //参数部分
@@ -235,6 +240,7 @@ half3 DirectBDRF_DualLobeSpecular(half roughness, half3 normalWS, half3 lightDir
                 float3 F0=surface_pbr.F0.xyz;
                 float  _Mip=surface_pbr._Mip;
                 float  _Mip_Value=surface_pbr._Mip_Value;
+                       FragmentBuffer output;
   #if F0_UN             
                 F0=lerp((float3)0.04,baseColor,metalic);
   #endif
@@ -331,14 +337,20 @@ half3 DirectBDRF_DualLobeSpecular(half roughness, half3 normalWS, half3 lightDir
                 float3 IndirectLight=(Diffuse_Indirect+Specular_Indirect)*aoColor*surface_pbr.shadowcolor;
                        //IndirectLight = lerp(IndirectLight*surface_pbr.shadowcolor,IndirectLight,shadow);
  //SSS光照
-                #if defined(_SUBSURFACESCATTERING) || defined(_TRANSMISSION)
-                SubsurfaceScatteringData subsurfaceData = (SubsurfaceScatteringData)0;
+                half3 diffuseLighting;
+                half3 specularLighting;
+                SubsurfaceScatterLit(inputData, surfaceData, diffuseLighting, specularLighting);
+                
+                //#if defined(_SUBSURFACESCATTERING) || defined(_TRANSMISSION)
+                output.specluarBuffer = half4(specularLighting, surfaceData.alpha);
+                output.diffuseBuffer = half4(diffuseLighting,   surfaceData.alpha);
+                output.diffuseBuffer.rgb += surfaceData.emission;
+   #if defined(_SUBSURFACESCATTERING)
+                //output.sssBuffer = half4(surface.albedo, PackFloatInt8bit(subsurfaceData.subsurfaceMask, 0, 16));
+                output.sssBuffer = half4(surface.albedo, subsurfaceData.subsurfaceMask);
+   #else
+                output.sssBuffer = half4(surfaceData.albedo, 0);
                 #endif
-               /*diffR  (T -> MS -> T, same sides) 光线从一个方向入射（T），在表面散射（MS），并从同一侧以漫反射方式反射出来（T）
-                specR  (R, RR, TRT, etc)          表示各种镜面反射路径，例如一次反射（R），多次反射（RR），以及透射-反射-透射（TRT）
-                diffT  (rough T or TT, opposite sides) 意思是光线从一个方向透射进表面（T或TT），并从相对侧以漫透射方式透射出来
-                specT  (T, TT, TRRT, etc) 表示各种镜面透射路径，例如单次透射（T），双次透射（TT），以及透射-反射-透射-透射（TRRT）
-              */
  //屏幕侧面光
               
                 float3 ScreenRimcol=ScreenRimLight(surface_pbr,shadow,posWS);

@@ -109,6 +109,7 @@ public class SkinRenderFeature : ScriptableRendererFeature
             //用于组合光照的着色器 Pixel Shader 调用 comuputeshader Pass
             m_CombineLightingPass = CoreUtils.CreateEngineMaterial("_res/2 model/myshader/street_shader/SubsurfaceScattering/SubsurfaceScattering");
             //StencilUsage 是一个枚举类型，它定义了一些常量，用来指定模板测试的不同使用场景
+//          从 cameraTextureDescriptor 中提取当前渲染目标的宽度和高度。这个描述符通常由相机提供，包含当前渲染目标的详细信息（如分辨率、格式等）。
             m_CombineLightingPass.SetInt(SSSShaderID._StencilRef,  (int)StencilUsage.SubsurfaceScattering);
             m_CombineLightingPass.SetInt(SSSShaderID._StencilMask, (int)StencilUsage.SubsurfaceScattering);
             //读取复制模板缓冲区的值
@@ -132,23 +133,24 @@ public class SkinRenderFeature : ScriptableRendererFeature
         
         public override void Configure(CommandBuffer cmd, RenderTextureDescriptor cameraTextureDescriptor)
         {
-//从 cameraTextureDescriptor 中提取当前渲染目标的宽度和高度。这个描述符通常由相机提供，包含当前渲染目标的详细信息（如分辨率、格式等）。
-            
             int width = cameraTextureDescriptor.width;
             int height = cameraTextureDescriptor.height;
             cmd.GetTemporaryRT(SSSShaderID._DepthTexture,     width, height, 16, FilterMode.Bilinear, RenderTextureFormat.Depth);
+            //创建一个临时的 RenderTexture，并将其与 SSSShaderID._IrradianceSource 标识符关联
             cmd.GetTemporaryRT(SSSShaderID._IrradianceSource, width, height, 0,  FilterMode.Bilinear, GraphicsFormat.B10G11R11_UFloatPack32);
             cmd.GetTemporaryRT(SSSShaderID._SSSBufferTexture, width, height, 0,  FilterMode.Bilinear, GraphicsFormat.R8G8B8A8_UNorm);
-            m_subsurfaceColorBuffer[0] = m_renderer.cameraColorTargetHandle;
-            m_subsurfaceColorBuffer[1] = new RenderTargetIdentifier(SSSShaderID._IrradianceSource);
-            m_subsurfaceColorBuffer[2] = new RenderTargetIdentifier(SSSShaderID._SSSBufferTexture);
-            depthBufferTarget          = new RenderTargetIdentifier(SSSShaderID._DepthTexture);
+            m_subsurfaceColorBuffer[0] = m_renderer.cameraColorTarget;
+            //通过m_subsurfaceColorBuffer[1] 访问和操作
+            m_subsurfaceColorBuffer[1] = new RenderTargetIdentifier(SSSShaderID._IrradianceSource);//中心点光照强度
+            m_subsurfaceColorBuffer[2] = new RenderTargetIdentifier(SSSShaderID._SSSBufferTexture);//次表面散射遮罩
+            depthBufferTarget          = new RenderTargetIdentifier(SSSShaderID._DepthTexture);    //计算总光照强度，viewZ
         }
         // 用来做每帧的操作
         // 每帧在管线指定位置执行一次（在上面 SetupRenderPasses 里配置位置）
         //进行自定义的 次表面散射（Subsurface Scattering, SSS） 渲染操作的实现
         public override void Execute(ScriptableRenderContext context, ref RenderingData renderingData)
          {
+             #region Diffuse属性
              //scatteringDistance: 次表面散射的距离。
              //worldScale: 渲染时物体的尺度。
              //filterRadius: 滤波半径。
@@ -158,16 +160,19 @@ public class SkinRenderFeature : ScriptableRendererFeature
              //ior: 物体的折射率（Index of Refraction, IOR）。
              //fresnel0: 根据折射率计算的 Fresnel 值。
              Vector4 scatteringDistance = (Vector4)m_diffusionProfile.profile.scatteringDistance;
-             float worldScale = m_diffusionProfile.profile.worldScale;
-             float filterRadius = m_diffusionProfile.profile.filterRadius;
-             Vector4 shapeParam = new Vector4(m_diffusionProfile.profile.shapeParam.x, m_diffusionProfile.profile.shapeParam.y, m_diffusionProfile.profile.shapeParam.z, Mathf.Max(scatteringDistance.x, scatteringDistance.y, scatteringDistance.z));
-             Color transmissionTint = m_diffusionProfile.profile.transmissionTint;
+             float worldScale           = m_diffusionProfile.profile.worldScale;
+             float filterRadius         = m_diffusionProfile.profile.filterRadius;
+             Vector4 shapeParam         = new Vector4(m_diffusionProfile.profile.shapeParam.x,
+                                                      m_diffusionProfile.profile.shapeParam.y,
+                                                      m_diffusionProfile.profile.shapeParam.z,
+                                                      Mathf.Max(scatteringDistance.x,scatteringDistance.y, scatteringDistance.z));
+             Color transmissionTint      = m_diffusionProfile.profile.transmissionTint;
              Vector2 thicknessRemapValue = m_diffusionProfile.profile.thicknessRemap;
-             float ior = m_diffusionProfile.profile.ior;
-             float fresnel0 = ((ior - 1.0f) * (ior - 1.0f)) / ((ior + 1.0f) * (ior + 1.0f));
+             float ior                   = m_diffusionProfile.profile.ior;
+             float fresnel0              = ((ior - 1.0f) * (ior - 1.0f)) / ((ior + 1.0f) * (ior + 1.0f));
              m_diffusionProfile._TransmissionTintsAndFresnel0 = new Vector4(transmissionTint.r * 0.25f, transmissionTint.g * 0.25f, transmissionTint.b * 0.25f, fresnel0);
              m_diffusionProfile._WorldScalesAndFilterRadiiAndThicknessRemaps = new Vector4(worldScale, filterRadius, thicknessRemapValue.x, thicknessRemapValue.y - thicknessRemapValue.x);
-              m_diffusionProfile._ShapeParamsAndMaxScatterDists = shapeParam;
+             m_diffusionProfile._ShapeParamsAndMaxScatterDists = shapeParam;
              m_diffusionProfile.disabled_TransmissionTintsAndFresnel0 = new Vector4(0.0f, 0.0f, 0.0f, fresnel0);
              //配置了渲染物体时的绘制顺序和设置 sortingCriteria: 选择渲染顺序的标准，这里使用的是默认的排序标准。
              //drawingSettings: 通过 CreateDrawingSettings 函数创建的渲染设置，它用于指定渲染时的设置，包括材质、着色器、排序标准等
@@ -182,12 +187,12 @@ public class SkinRenderFeature : ScriptableRendererFeature
              cmd.SetGlobalVector("_TransmissionTintsAndFresnel0", m_diffusionProfile._TransmissionTintsAndFresnel0);
              cmd.SetGlobalVector("_WorldScalesAndFilterRadiiAndThicknessRemaps", m_diffusionProfile._WorldScalesAndFilterRadiiAndThicknessRemaps);
              cmd.SetGlobalVector("_ShapeParamsAndMaxScatterDists", m_diffusionProfile._ShapeParamsAndMaxScatterDists);
-             //
+             #endregion
              var projectMatrix = renderingData.cameraData.camera.projectionMatrix;
              var invProject = projectMatrix.inverse; //vp矩阵
              using(new ProfilingScope(cmd, new ProfilingSampler("Subsurface Scattering")))
              {
-                 cmd.SetRenderTarget(m_subsurfaceColorBuffer, m_renderer.cameraDepthTarget);
+                 cmd.SetRenderTarget(m_subsurfaceColorBuffer,m_renderer.cameraDepthTargetHandle);
                  cmd.ClearRenderTarget(true, true, renderingData.cameraData.camera.backgroundColor);
                  context.ExecuteCommandBuffer(cmd);
                  cmd.Clear();
@@ -213,23 +218,23 @@ public class SkinRenderFeature : ScriptableRendererFeature
              }
              //使用计算着色器进行次表面散射的计算。
             // 设置临时渲染目标并进行计算。
-             using(new ProfilingScope(cmd, new ProfilingSampler("SubsurfaceScattering")))
+             using(new ProfilingScope(cmd, new ProfilingSampler("Compute SubsurfaceScattering")))
              {
                  int m_kernel = m_SubsurfaceScatteringCS.FindKernel("SubsurfaceScattering");
-                 int cameraFilterBuffer = Shader.PropertyToID("cameraFilterBuffer");
-                 RenderTargetIdentifier cameraFilterBufferID = new RenderTargetIdentifier(cameraFilterBuffer);
+                 int _CameraFilteringBuffer = Shader.PropertyToID("_CameraFilteringBuffer");
+                 RenderTargetIdentifier cameraFilterBufferID = new RenderTargetIdentifier(_CameraFilteringBuffer);
                  RenderTextureDescriptor decs = renderingData.cameraData.cameraTargetDescriptor;
                  decs.enableRandomWrite = true;
-                 cmd.GetTemporaryRT(cameraFilterBuffer, decs);
+                 cmd.GetTemporaryRT(_CameraFilteringBuffer, decs);
          
-                 cmd.SetRenderTarget(cameraFilterBufferID, m_renderer.cameraDepthTarget);
+                 cmd.SetRenderTarget(cameraFilterBufferID, m_renderer.cameraDepthTargetHandle);
                  cmd.ClearRenderTarget(false, true, Color.clear);
                  context.ExecuteCommandBuffer(cmd);
                  cmd.Clear();
-                 
+                 //将m_subsurfaceColorBuffer[1]表示的纹理绑定到计算着色器的_IrradianceSource参数上
                  cmd.SetComputeTextureParam(m_SubsurfaceScatteringCS, m_kernel, SSSShaderID._IrradianceSource, m_subsurfaceColorBuffer[1]);
                  cmd.SetComputeTextureParam(m_SubsurfaceScatteringCS, m_kernel, SSSShaderID._SSSBufferTexture, m_subsurfaceColorBuffer[2]);
-                 cmd.SetComputeTextureParam(m_SubsurfaceScatteringCS, m_kernel, SSSShaderID._DepthTexture, depthBufferTarget);
+                 cmd.SetComputeTextureParam(m_SubsurfaceScatteringCS, m_kernel, SSSShaderID._DepthTexture,              depthBufferTarget);
                  cmd.SetComputeTextureParam(m_SubsurfaceScatteringCS, m_kernel, SSSShaderID._CameraFilteringBuffer, cameraFilterBufferID);
                  cmd.DispatchCompute(m_SubsurfaceScatteringCS, m_kernel, (Screen.width + 7) / 8, (Screen.height + 7) / 8, 1);
          
@@ -247,9 +252,7 @@ public class SkinRenderFeature : ScriptableRendererFeature
              CommandBufferPool.Release(cmd);
          }
        
-        public override void OnCameraCleanup(CommandBuffer cmd)
-        {
-        }
+       
     }
     //AddRenderPasses 方法的主要作用是将自定义渲染通道添加到 URP 渲染过程中。
     //通过 Setup 方法，传入各种参数，配置渲染通道的具体行为。
