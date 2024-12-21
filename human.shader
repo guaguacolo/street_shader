@@ -1,4 +1,3 @@
-
 Shader "Game/human"
 
 {
@@ -437,7 +436,8 @@ Shader "Game/human"
                 DECLARE_LIGHTMAP_OR_SH(lightmapUV, vertexSH, 7);
             };
             
-            half4 UniversalFragmentPBR0(InputData inputData, SurfaceData surfaceData,SurfacePBR surfacepbr,TBNpbr tbnpbr)
+            half4 UniversalFragmentPBR0(InputData inputData, SurfaceData surfaceData,SurfacePBR surfacepbr,TBNpbr tbnpbr
+                ,inout SubsurfaceScatteringData subsurfaceData)
             {
             #ifdef _SPECULARHIGHLIGHTS_OFF
                 bool specularHighlightsOff = true;
@@ -474,7 +474,9 @@ Shader "Game/human"
                     MixRealtimeAndBakedGI(mainLight, inputData.normalWS, inputData.bakedGI);
                   
                 
-               lightingData.mainLightColor = PBR_Light(brdfData,mainLight,inputData.normalWS,inputData.positionWS,inputData.viewDirectionWS,surfacepbr,tbnpbr);
+               lightingData.mainLightColor = PBR_Light(brdfData,mainLight,inputData.normalWS,inputData.positionWS,
+                                                       inputData.viewDirectionWS,surfacepbr,tbnpbr,surfaceData
+                                                       ,inputData,subsurfaceData);
               
     #if defined(_ADDITIONAL_LIGHTS)
     uint pixelLightCount = GetAdditionalLightsCount();
@@ -652,8 +654,10 @@ Shader "Game/human"
                 tbnpbr.roughnessInTangent =roughnessInTangent;
                 tbnpbr.roughnessInBTangent=roughnessInBTangent;
 
-               
-                float4 Finalcolor=UniversalFragmentPBR0(inputData,surfaceData,surfacepbr,tbnpbr);
+                SubsurfaceScatteringData subsurfaceData= (SubsurfaceScatteringData)0;
+                half3 diffuseLighting;
+                half3 specularLighting;
+                float4 Finalcolor=UniversalFragmentPBR0(inputData,surfaceData,surfacepbr,tbnpbr,subsurfaceData);
                 float3 test = dot(N,V);
                 #if Test_On
                 return SRMA.r.xxxx;

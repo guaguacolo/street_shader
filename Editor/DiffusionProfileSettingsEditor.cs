@@ -58,8 +58,8 @@ namespace UnityEditor.Rendering.Universal
 
                 scatteringDistance = rp.Find(x => x.scatteringDistance),
                 transmissionTint = rp.Find(x => x.transmissionTint),
-                //texturingMode = rp.Find(x => x.texturingMode),
-                //transmissionMode = rp.Find(x => x.transmissionMode),
+                texturingMode = rp.Find(x => x.texturingMode),
+                transmissionMode = rp.Find(x => x.transmissionMode),
                 thicknessRemap = rp.Find(x => x.thicknessRemap),
                 worldScale = rp.Find(x => x.worldScale),
                 ior = rp.Find(x => x.ior)
@@ -100,7 +100,7 @@ namespace UnityEditor.Rendering.Universal
                 EditorGUILayout.PropertyField(profile.worldScale, new GUIContent("World Scale"));
                 EditorGUILayout.Space();
                 EditorGUILayout.LabelField(s_Styles.SubsurfaceScatteringLabel, EditorStyles.boldLabel);
-
+//这个GUI显示有问题
                 profile.texturingMode.intValue = EditorGUILayout.Popup(s_Styles.texturingMode, profile.texturingMode.intValue, s_Styles.texturingModeOptions);
 
                 EditorGUILayout.Space();

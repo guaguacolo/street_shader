@@ -1,0 +1,72 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!21 &2100000
+Material:
+  serializedVersion: 8
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_Name: Game_humanSSS
+  m_Shader: {fileID: 4800000, guid: 06bb34974af0ae948bb7a9ae1a468c7d, type: 3}
+  m_Parent: {fileID: 0}
+  m_ModifiedSerializedProperties: 0
+  m_ValidKeywords: []
+  m_InvalidKeywords: []
+  m_LightmapFlags: 4
+  m_EnableInstancingVariants: 0
+  m_DoubleSidedGI: 0
+  m_CustomRenderQueue: -1
+  stringTagMap: {}
+  disabledShaderPasses: []
+  m_LockedProperties: 
+  m_SavedProperties:
+    serializedVersion: 3
+    m_TexEnvs:
+    - _BaseMap:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _Normal:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _SSSLUT:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _SrmaTex:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _refmap:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    m_Ints: []
+    m_Floats:
+    - Cloth_UN: 0
+    - F0_UN: 0
+    - HAIR_RENDER: 0
+    - RENDER_Unreal: 0
+    - ScreenRimLight_DitalNormal: 0
+    - Test_0n: 0
+    - _LUTY: 4
+    - _Mip: 4
+    - _Mip_Value: 0.5
+    - _Roughness_value: 1
+    - _SUBSURFACESCATTERING: 0
+    - _TRANSMISSION: 0
+    - _aoColor_value: 1.5
+    - anisotropic: 0.5
+    - enable_globlemetalic: 0
+    - lobeWeight: 0.5
+    m_Colors:
+    - _BaseColor: {r: 1, g: 1, b: 1, a: 1}
+    - _CharacterRimLightColor: {r: 1, g: 1, b: 1, a: 1}
+    - _CharacterRimLightDirection: {r: 1, g: 1, b: 1, a: 1}
+    - _F0: {r: 0.04, g: 0.04, b: 0.04, a: 0.04}
+    - _ShadowColor: {r: 1, g: 1, b: 1, a: 1}
+    - _aoColor: {r: 1, g: 1, b: 1, a: 1}
+    - _tuneNormalBlur: {r: 0.04, g: 0.04, b: 0.04, a: 0.04}
+  m_BuildTextureStacks: []

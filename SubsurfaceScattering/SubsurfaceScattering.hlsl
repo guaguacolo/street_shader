@@ -11,19 +11,17 @@
 //Post-scatter模式下，前向渲染以Albedo为白色计算diffuse，在SSS Pass进行Albdeo的混合；Pre- and post- scatter模式，前向和SSS Pass将以Albedo为sqrt(Albedo)计算diffuse，最后叠加。
 uint GetSubsurfaceScatteringTexturingMode(int diffusionProfile)
 {
-    uint texturingMode = 0;
-
-#if defined(SHADERPASS) && (SHADERPASS == SHADERPASS_SUBSURFACE_SCATTERING)
-    // If the SSS pass is executed, we know we have SSS enabled.
+    uint  _TexturingModeFlags = (1 << 0) | (1 << 2); // 初始化 _TexturingModeFlags
+    uint  texturingMode = 0;
+    uint _EnableSubsurfaceScattering = 1;
     bool enableSss = true;
-    // SSS in HDRP is a screen space effect thus, it is not available for the lighting-based ray tracing passes (RTR, RTGI and RR). Thus we need to disable
-    // the feature if we are in a ray tracing pass.
-#elif defined(SHADERPASS) && ((SHADERPASS == SHADERPASS_RAYTRACING_INDIRECT) || (SHADERPASS == SHADERPASS_RAYTRACING_FORWARD))
-    // If the SSS pass is executed, we know we have SSS enabled.
-    bool enableSss = false;
+#if defined(SHADERPASS) && (SHADERPASS == SHADERPASS_SUBSURFACE_SCATTERING)
+    enableSss = true;
 #else
-    bool enableSss = _EnableSubsurfaceScattering != 0;
+    enableSss =false;
 #endif
+    enableSss = _EnableSubsurfaceScattering != 0;
+
 
     if (enableSss)
     {

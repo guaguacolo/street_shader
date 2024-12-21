@@ -20,9 +20,18 @@ Shader "Hidden/HDRP/CombineLighting"
         #include "Library/PackageCache/com.unity.shadergraph@13.1.8/ShaderGraphLibrary/ShaderVariables.hlsl"
         #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
         
-
-        TEXTURE2D_X(_IrradianceSource);
-
+        
+        float _ProbeExposureScale;
+                TEXTURE2D(_IrradianceSource);
+        float GetCurrentExposureMultiplier()
+        {
+        #if SHADEROPTIONS_PRE_EXPOSITION
+            // _ProbeExposureScale is a scale used to perform range compression to avoid saturation of the content of the probes. It is 1.0 if we are not rendering probes.
+            return LOAD_TEXTURE2D(_ExposureTexture, int2(0, 0)).x * _ProbeExposureScale;
+        #else
+            return _ProbeExposureScale;
+        #endif
+}
         struct Attributes
         {
             uint vertexID : SV_VertexID;
@@ -45,8 +54,8 @@ Shader "Hidden/HDRP/CombineLighting"
         }
         ENDHLSL
 
-        Tags{ "RenderPipeline" = "UniversalPipeline" }
-        Pass
+        Tags{ "RenderPipeline" = "UniversalForward" }
+         Pass
         {
             Stencil
             {
@@ -63,37 +72,15 @@ Shader "Hidden/HDRP/CombineLighting"
 
             HLSLPROGRAM
             
-            float4 Frag(Varyings input) : SV_Target
-            {
-                UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(input);
-                return LOAD_TEXTURE2D_X(_IrradianceSource, input.positionCS.xy);
-            }
-            ENDHLSL
-        }
-
-        Pass
-        {
-            Stencil
-            {
-                ReadMask [_StencilMask]
-                Ref  [_StencilRef]
-                Comp Equal
-                Pass Keep
-            }
-
-            Cull   Off
-            ZTest  Less    // Required for XR occlusion mesh optimization
-            ZWrite Off
-            Blend  One One // Additive
-
-            HLSLPROGRAM
             float4 Frag(Varyings input) : SV_Target0
             {
                 UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(input);
-                return LOAD_TEXTURE2D_X(_IrradianceSource, input.positionCS.xy) /* GetCurrentExposureMultiplier()*/;
+                return float4(1,1,1,1);
+                //return LOAD_TEXTURE2D_X(_IrradianceSource, input.positionCS.xy);
             }
             ENDHLSL
         }
+
     }
     Fallback Off
 }

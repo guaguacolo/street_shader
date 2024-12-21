@@ -6,6 +6,7 @@ Shader "Game/humanSSS"
     {
         
         _BaseMap("Base Map", 2D) = "white" {}
+        _TransmittanceMap("_TransmittanceMap", 2D) = "white" {}
         [Hdr] _BaseColor("Base Color", Color) = (1,1,1,1)
         _ShadowColor("暗部颜色修正", Color) = (1,1,1,1)
         _aoColor("ao颜色", Color) = (1,1,1,1)
@@ -14,7 +15,8 @@ Shader "Game/humanSSS"
         _CharacterRimLightDirection("XY侧面光方向",Vector)=(1,1,1,1)
         _SrmaTex("SrmaTex (RGBA)", 2D) = "white" {}
         _Normal("_Normal",2D) = "Bump"{}
-        _SSSLUT("_SSSLUT",2D) = "Black"{}
+        //Dital_Normal("Dital_Normal",2D) = "Bump"{}
+        //_SSSLUT("_SSSLUT",2D) = "Black"{}
         _LUTY("_LUTY",Range(0,4)) = 4
         _aoColor_value("_aoColor_value",Range(0,3)) = 1.5
         _Roughness_value("_Roughness_value",Range(0,5)) = 1.0
@@ -24,19 +26,20 @@ Shader "Game/humanSSS"
         _F0("_F0",Vector) = (0.04,0.04,0.04,0.04)
         _tuneNormalBlur("_tuneNormalBlur",Color) = (0.04,0.04,0.04,0.04)
         _Mip_Value("_Mip_Value",Range(0,2)) = 0.5
-        lobeWeight("lobeWeight",Range(0,2)) = 0.5
-        [Space(50)]
-        [Space(50)]
-        anisotropic("anisotropic",Range(0,1)) = 0.5
-        [Toggle(Test_On)]Test_0n("Test_0n",int)=0
+        //dital_normal_value("dital_normal_value",Range(0,2)) = 0.5
+        lobeWeight("二层高光强度",Range(0,2)) = 0.5
+        //anisotropic("各向异性高光",Range(-10,10)) = 0.5
+        //[Toggle(Test_On)]Test_0n("Test_0n",int)=0
         [Toggle(enable_globlemetalic)]enable_globlemetalic("使用单独反射贴图",int)=0
+        // [Toggle(DITAL_NORMAL)]DITAL_NORMAL("细节normal",int)=0
         [Toggle(RENDER_Unreal)]RENDER_Unreal("Unreal",int)=0
-        [Toggle(ScreenRimLight_DitalNormal)]ScreenRimLight_DitalNormal("侧面光细节贴图",int)=0
-        [Toggle(_SUBSURFACESCATTERING)]_SUBSURFACESCATTERING("SSS开关",int)=0
-        [Toggle(_TRANSMISSION)]_TRANSMISSION("透射开关",int)=0
+        //[Toggle(ScreenRimLight_DitalNormal)]ScreenRimLight_DitalNormal("侧面光细节贴图",int)=0
+        [Toggle(_SUBSURFACESCATTERING)]_SUBSURFACESCATTERING("关掉SSS",int)=1
+        //[Toggle(SSS_RENDER)]SSS_RENDER("预积分SSS开关",int)=1
+        [Toggle(_TRANSMISSION)]_TRANSMISSION("透射开关",int)=1
         [Toggle(HAIR_RENDER)]HAIR_RENDER("各向异性高光开关",int)=0
         [Toggle(F0_UN)]F0_UN("金属F0",int)=0
-        [Toggle(Cloth_UN)]Cloth_UN("布料",int)=0
+        // [Toggle(Cloth_UN)]Cloth_UN("布料",int)=0
      
     } 
     
@@ -67,8 +70,7 @@ Shader "Game/humanSSS"
             #pragma shader_feature_local _ALPHATEST_ON
             #pragma shader_feature_local BOOLEAN_STATECOLORENABLE_ON
             #pragma shader_feature_local BOOLEAN_VTENABLE_ON
-            #pragma shader_feature_local _SUBSURFACESCATTERING
-            #pragma shader_feature_local _TRANSMISSION
+            
 
             #include "Packages/com.unity.render-pipelines.universal/Shaders/LitInput.hlsl"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Shadows.hlsl"
@@ -352,7 +354,7 @@ Shader "Game/humanSSS"
         Pass
         {
             Name "UniversalForward"
-            Tags{"LightMode"="UniversalForward" "SkinDiffuse"="true"}
+            Tags{"LightMode"="SkinDiffuse"}
 
             Cull Back
 			ZWrite On
@@ -367,32 +369,41 @@ Shader "Game/humanSSS"
            /* #pragma multi_compile_fragment _ _NORMALMAP
             #pragma multi_compile_fragment _ _EMISSION*/
 
-
             #pragma vertex vert
             #pragma fragment frag
             #pragma shader_feature  _OVERLAY_NONE _OVERLAY_ADD _OVERLAY_MULTIPLY
-            #pragma shader_feature  _ Test_On
+            //#pragma shader_feature  _ Test_On
             #pragma shader_feature  _ enable_globlemetalic
             #pragma shader_feature  _ RENDER_Unreal
-            #pragma shader_feature  _ ScreenRimLight_DitalNormal
-            #pragma shader_feature  _ SSS_RENDER
+            //#pragma shader_feature  _ ScreenRimLight_DitalNormal
+            //#pragma shader_feature  _ SSS_RENDER
             #pragma shader_feature  _ HAIR_RENDER
             #pragma shader_feature  _ F0_UN
+            #pragma shader_feature  _ _SUBSURFACESCATTERING
+            #pragma shader_feature  _ _TRANSMISSION
+            //#pragma shader_feature  _ DITAL_NORMAL
+            #pragma shader_feature  _ _THICKNESSMAP
           
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/SurfaceInput.hlsl"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
+            // #include "Assets/_res/2 model/myshader/street_shader/SubsurfaceScattering/SubsurfaceScattering.hlsl"
             #include "./Include/FixProjection1.hlsl"
             #include "./Include/PBR_Function.hlsl"
             
-
+             
             CBUFFER_START(UnityPerMaterial)
            
             TEXTURE2D(_SrmaTex);SAMPLER(sampler_SrmaTex);float4 _SrmaTex_ST;
-            TEXTURE2D(_SSSLUT);SAMPLER(sampler_SSSLUT);float4 _SSSLUT_ST;
+            //TEXTURE2D(_SSSLUT);SAMPLER(sampler_SSSLUT);float4 _SSSLUT_ST;
             TEXTURE2D(_Normal);SAMPLER(sampler_Normal);float4 _Normal_ST;
+            TEXTURE2D(_TransmittanceMap);SAMPLER(sampler_TransmittanceMap);float4 _TransmittanceMap_ST;
+            //TEXTURE2D(Dital_Normal);SAMPLER(sampler_Dital_Normal);float4 Dital_Normal_ST;
             TEXTURECUBE(_refmap);SAMPLER(sampler_refmap);
             float4 _BaseColor;
+            float4 _ShapeParamsAndMaxScatterDists;
+            float3 _TransmissionTintsAndFresnel0;
+            float4 _WorldScalesAndFilterRadiiAndThicknessRemaps;
             float4 _ShadowColor;
             float4 _ShadowColor1;
             float4 _CharacterRimLightColor,_CharacterRimLightDirection;
@@ -401,15 +412,18 @@ Shader "Game/humanSSS"
             float4 _F0;
             float4 _tuneNormalBlur;
             float _LUTY;
+            //float dital_normal_value;
+            float _Thickness;
             float _Metalness;
             float _Smoothness;
             float _AOScale;
             float _Mip_Value;
             float _Mip;
-            float anisotropic;
-            float _SSSLut;
+            //float anisotropic;
+            //float _SSSLut;
             float _aoColor_value;
             float lobeWeight;
+            float _SubsurfaceMask;
           
             CBUFFER_END
 
@@ -440,7 +454,8 @@ Shader "Game/humanSSS"
                 DECLARE_LIGHTMAP_OR_SH(lightmapUV, vertexSH, 7);
             };
             
-            half4 UniversalFragmentPBR0(InputData inputData, SurfaceData surfaceData,SurfacePBR surfacepbr,TBNpbr tbnpbr)
+            half4 UniversalFragmentPBR0(InputData inputData, SurfaceData surfaceData,SurfacePBR surfacepbr,TBNpbr tbnpbr
+                ,inout SubsurfaceScatteringData subsurfaceData)
             {
             #ifdef _SPECULARHIGHLIGHTS_OFF
                 bool specularHighlightsOff = true;
@@ -478,7 +493,8 @@ Shader "Game/humanSSS"
                   
                 
                lightingData.mainLightColor = PBR_Light(brdfData,mainLight,inputData.normalWS,inputData.positionWS,
-                                                       inputData.viewDirectionWS,surfacepbr,tbnpbr,surfaceData,inputData);
+                                                       inputData.viewDirectionWS,surfacepbr,tbnpbr,surfaceData
+                                                       ,inputData,subsurfaceData);
               
     #if defined(_ADDITIONAL_LIGHTS)
     uint pixelLightCount = GetAdditionalLightsCount();
@@ -488,26 +504,36 @@ Shader "Game/humanSSS"
     {
         Light light = GetAdditionalLight(lightIndex, inputData, shadowMask, aoFactor);
         light.shadowAttenuation = saturate((light.shadowAttenuation - 0.375)/0.25);
-
+        SubsurfaceScatteringData.addtionLight=light; 
         if (IsMatchingLightLayer(light.layerMask, meshRenderingLayers))
         {
-            /*lightingData.additionalLightsColor += PBR_Light(brdfData,mainLight,inputData.normalWS,inputData.positionWS,
-                                  inputData.viewDirectionWS,,surfacepbr);*/
-              lightingData.additionalLightsColor += LightingPhysicallyBased(brdfData1, brdfDataClearCoat, light,
+             
+              /*lightingData.additionalLightsColor += LightingPhysicallyBased(brdfData1, brdfDataClearCoat, light,
                                                                                     inputData.normalWS, inputData.viewDirectionWS,
-                                                                                    surfaceData.clearCoatMask, specularHighlightsOff);
+                                                                                    surfaceData.clearCoatMask, specularHighlightsOff);*/
+              lightingData.additionalLightsColor += PBR_Light(brdfData,light,inputData.normalWS,inputData.positionWS,
+                                                       inputData.viewDirectionWS,surfacepbr,tbnpbr,surfaceData
+                                                       ,inputData,subsurfaceData);
+            
         }
     }
+                 subsurfaceData.specularLighting  +=subsurfaceData.specularLighting;
+                 subsurfaceData.diffuseLighting   +=subsurfaceData.diffuseLighting;
     #endif
 
     LIGHT_LOOP_BEGIN(pixelLightCount)
         Light light = GetAdditionalLight(lightIndex, inputData, shadowMask, aoFactor);
-
         if (IsMatchingLightLayer(light.layerMask, meshRenderingLayers))
         {
-            lightingData.additionalLightsColor += LightingPhysicallyBased(brdfData1, brdfDataClearCoat, light,
+            /*lightingData.additionalLightsColor += LightingPhysicallyBased(brdfData1, brdfDataClearCoat, light,
                                                                                     inputData.normalWS, inputData.viewDirectionWS,
-                                                                                    surfaceData.clearCoatMask, specularHighlightsOff);
+                                                                                    surfaceData.clearCoatMask, specularHighlightsOff);*/
+             lightingData.additionalLightsColor += PBR_Light(brdfData,light,inputData.normalWS,inputData.positionWS,
+                                                       inputData.viewDirectionWS,surfacepbr,tbnpbr,surfaceData
+                                                       ,inputData,subsurfaceData);
+
+            
+             
         }
     LIGHT_LOOP_END
     #endif
@@ -547,18 +573,40 @@ Shader "Game/humanSSS"
                 return o;
             }
             
-            //    diffTerm=albedo * lightIntensity
-            //    clamping（钳制）处理，以确保其在 [0, 1] 的范围内  clampNdotL
-            //    权重 w 来计算包裹后的漫反射光照，确保计算过程中的能量守恒，并且根据材质的不同特性（如粗糙度、透明度等）来调整漫反射的强度。
-            //    W应该是transmittance  
          
             //VFace 是背面的关键字
             //用法：bool backFace:VFace
-            float4 frag(V2FData input,float backFace:VFace) : SV_Target
+          
+            
+          #if defined(_SUBSURFACESCATTERING) || defined(_TRANSMISSION)
+          SubsurfaceScatteringData subsurfaceData = (SubsurfaceScatteringData)0;
+          #endif
+
+             void InitializeSubsurfaceScatteringData(V2FData input, inout SubsurfaceScatteringData subsurfaceData)
+             {
+                
+             
+                #ifdef _SUBSURFACESCATTERING
+                     subsurfaceData.fresnel0 = _TransmissionTintsAndFresnel0.rgb;
+                     subsurfaceData.subsurfaceMask = _SubsurfaceMask;
+                    /* #ifdef _SUBSURFACEMASKMAP
+                         subsurfaceData.subsurfaceMask *= SAMPLE_TEXTURE2D(_SubsurfaceMaskMap, sampler_SubsurfaceMaskMap, input.uv).r;
+                     #endif*/
+                 #endif
+                     subsurfaceData.thickness = SAMPLE_TEXTURE2D(_TransmittanceMap, sampler_TransmittanceMap, input.uv).r;
+                 #ifdef _TRANSMISSION
+                     float2 remap = _WorldScalesAndFilterRadiiAndThicknessRemaps.zw;
+                     float  thickness = subsurfaceData.thickness;
+                     subsurfaceData.thickness = remap.x + remap.y * thickness;
+                     subsurfaceData.transmittance = ComputeTransmittanceDisney(_ShapeParamsAndMaxScatterDists.rgb, _TransmissionTintsAndFresnel0.rgb, subsurfaceData.thickness);
+                 #endif
+             }
+            
+            FragmentBuffer frag(V2FData input) : SV_Target
             {
                 float2 uv = input.uv;
                 float4 SRMA = SAMPLE_TEXTURE2D(_SrmaTex,sampler_SrmaTex,uv);
-                half4 baseColor = SampleAlbedoAlpha(input.uv, TEXTURE2D_ARGS(_BaseMap, sampler_BaseMap));
+                half4  baseColor = SampleAlbedoAlpha(input.uv, TEXTURE2D_ARGS(_BaseMap, sampler_BaseMap));
                 
                 //float3 normalmap=SAMPLE_TEXTURE2D(_Normal,sampler_Normal,uv);
                 float  metalic=SRMA.z;
@@ -576,11 +624,15 @@ Shader "Game/humanSSS"
                
                 
                 float3 normal=UnpackNormal(SAMPLE_TEXTURE2D(_Normal,sampler_Normal,uv));
+                //float3 dital_normal=UnpackNormal(SAMPLE_TEXTURE2D(Dital_Normal,sampler_Dital_Normal,uv*Dital_Normal_ST.xy+Dital_Normal_ST.zw));
                 float  tangentFactor  = dot(T,normal);
                 float  BtangentFactor = dot(B,normal);
                 float  roughnessInTangent  = roughness * (1.0 - abs(tangentFactor));
                 float  roughnessInBTangent = roughness * (1.0 - abs(BtangentFactor));
                        normal=normalize(mul(normal,TBN));
+                       //dital_normal=normalize(mul(dital_normal,TBN));
+                
+                
                 float  TdotH=dot(T,H);
                 float  BdotH=dot(B,H);
                 float  NdotH=dot(N,H);
@@ -619,12 +671,13 @@ Shader "Game/humanSSS"
                 inputData.bakedGI = 0;
                 inputData.normalizedScreenSpaceUV = GetNormalizedScreenSpaceUV(input.pos);
                 inputData.shadowMask = SAMPLE_SHADOWMASK(input.lightmapUV);
-                //
+               
+                
 
 
                 SurfacePBR surfacepbr;
-                surfacepbr.sampler_SSSLUT=sampler_SSSLUT;
-                surfacepbr._SSSLUT=_SSSLUT;
+                //surfacepbr.sampler_SSSLUT=sampler_SSSLUT;
+                //surfacepbr._SSSLUT=_SSSLUT;
                 surfacepbr._refmap=_refmap;
                 surfacepbr.sampler_refmap=sampler_refmap;
                 surfacepbr.shadowcolor=_ShadowColor.rgb;
@@ -641,11 +694,13 @@ Shader "Game/humanSSS"
                 surfacepbr._Roughness_value=_Roughness_value;
                 surfacepbr._Mip_Value=_Mip_Value;
                 surfacepbr._NormalWorld=normal;
+                //surfacepbr.dital_normal=dital_normal;
+                ///surfacepbr.dital_normal_value=dital_normal_value;
                 surfacepbr._Normal_modle=N;
                 surfacepbr._tuneNormalBlur=_tuneNormalBlur;
                 surfacepbr._CharacterRimLightColor=_CharacterRimLightColor;
                 surfacepbr._CharacterRimLightDirection=_CharacterRimLightDirection;
-                surfacepbr.anisotropic=anisotropic;
+                //surfacepbr.anisotropic=anisotropic;
                 surfacepbr.posOS=input.posOS;
 
                 TBNpbr tbnpbr;
@@ -661,28 +716,44 @@ Shader "Game/humanSSS"
                 tbnpbr.roughnessInTangent =roughnessInTangent;
                 tbnpbr.roughnessInBTangent=roughnessInBTangent;
                
-                FragmentBuffer output;
-                half3 diffuseLighting;
-                half3 specularLighting;
-                //SubsurfaceScatterLit(inputData, surfaceData, diffuseLighting, specularLighting);
-                output.specluarBuffer = half4(specularLighting, surfaceData.alpha);
-                output.diffuseBuffer = half4(diffuseLighting, surfaceData.alpha);
-                output.diffuseBuffer.rgb += surfaceData.emission;
-                #if defined(_SUBSURFACESCATTERING)
-                output.sssBuffer = half4(surface.albedo, subsurfaceData.subsurfaceMask);
-                #else
-                output.sssBuffer = half4(surfaceData.albedo, 0);
-                #endif
                
-                float4 Finalcolor=UniversalFragmentPBR0(inputData,surfaceData,surfacepbr,tbnpbr);
-                
-                
-                float3 test = dot(N,V);
-                #if Test_On
-                return SRMA.r.xxxx;
-                #else 
-                return Finalcolor;
+               
+             
+    float3 unL             =-L;
+    float disSq  =dot(unL,unL);
+    float disRcp =rsqrt(disSq);
+    float dist   =disRcp*disRcp;
+
+    float distBackFaceToLight    = saturate(-NdotL)/*_PunctualLightBackFaceToLight*/;
+    float distFrontFaceToLight   = dist;
+    float thicknessInUnits       = distBackFaceToLight /* * -NdotL */;
+    float metersPerUnit          = _WorldScalesAndFilterRadiiAndThicknessRemaps;
+    float thicknessInMeters      = thicknessInUnits * metersPerUnit;
+    float thicknessInMillimeters = thicknessInMeters * MILLIMETERS_PER_METER;
+                SubsurfaceScatteringData subsurfaceData= (SubsurfaceScatteringData)0;
+                //简单透射 -NL 透射 没有计算精确光照透射
+                InitializeSubsurfaceScatteringData(input, subsurfaceData);
+                float4 Finalcolor        = UniversalFragmentPBR0(inputData,surfaceData,surfacepbr,tbnpbr,subsurfaceData);
+                float3 transmittance     = subsurfaceData.transmittance;
+                half3 specularLighting   = subsurfaceData.specularLighting;
+                half3 diffuseLighting    = subsurfaceData.diffuseLighting+subsurfaceData.diffT*transmittance;
+
+                FragmentBuffer output;
+                //输出 通道
+                output.specluarBuffer     = half4(specularLighting, surfaceData.alpha);
+                output.diffuseBuffer      = half4(diffuseLighting,  surfaceData.alpha);
+                output.diffuseBuffer.rgb += surfaceData.emission;
+            
+         
+                #if _SUBSURFACESCATTERING
+                output.sssBuffer = half4(surfaceData.albedo, subsurfaceData.thickness);
+                #else
+                output.sssBuffer = half4(surfaceData.albedo,surfaceData.alpha);
                 #endif
+                
+               
+                return output;
+               
                
             }
              ENDHLSL

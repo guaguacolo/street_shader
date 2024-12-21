@@ -6,66 +6,10 @@
 #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/AmbientOcclusion.hlsl"
 #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DBuffer.hlsl"
 #include "Assets/_res/2 model/myshader/street_shader/Editor/DiffusionProfile.hlsl"
+#include "Assets/_res/2 model/myshader/street_shader/Include/struct_Function.hlsl"
 //间接光函数
 //间接光 F
-struct SubsurfaceScatteringData
-{
-    float3 fresnel0;
-    float3 transmittance;
-    float subsurfaceMask;
-    float thickness;
-};
-struct FragmentBuffer
-{
-    half4 specluarBuffer : SV_TARGET1;
-    half4 diffuseBuffer : SV_TARGET2;
-    half4 sssBuffer : SV_TARGET3;
-};
-struct TBNpbr
-{
-      float  TdotH;
-      float  BdotH;
-      float  NdotH;
-      float  TdotV;
-      float  BdotV;
-      float  NdotV;
-      float  TdotL;
-      float  BdotL;
-      float  NdotL;
-      float  roughnessInTangent ;
-      float  roughnessInBTangent;
-};
-struct SurfacePBR
-{
-    Texture2D _SSSLUT;
-    SAMPLER (sampler_SSSLUT);
-    Texture2D _BRDFLut;
-    SAMPLER (sampler_BRDFLut);
-    TextureCube _refmap;
-    SAMPLER (sampler_refmap);
-    half3 shadowcolor;
-    half3 basecolor;
-    half _LUTY;
-    half aoColor_value;
-    float3 aoColor;
-    float  Specular;
-    float3 F0;
-    float _Mip;
-    float3 _DitelNormal;
-    float3 albedo;
-    float3 posOS;
-    float metallic;
-    float lobeWeight;
-    float _Roughness_value;
-    float _Mip_Value;
-    float anisotropic;
-    float3 _NormalWorld;
-    float3 _Normal_modle;
-    float4 _tuneNormalBlur;
-    float4 _CharacterRimLightColor;
-    float4 _CharacterRimLightBorderOffset;
-    float4 _CharacterRimLightDirection;
-};
+
 float3 FresnalSchlickRoughness(float NV, float3 F0,float roughness)
 {
     float s=1.0-roughness;
@@ -199,7 +143,7 @@ inline void InitializeBRDFDataPBR(half3 albedo, half3 metalic, float ao,half3 ro
 half3 DirectBDRF_DualLobeSpecular(half roughness, half3 normalWS, half3 lightDirectionWS, half3 viewDirectionWS,SurfacePBR surfacepbr,float mask)
 {
     float3 halfDir = SafeNormalize(float3(lightDirectionWS) + float3(viewDirectionWS));
-    float  roughness2=roughness*roughness;
+    float roughness2=roughness*roughness;
     float NoH = saturate(dot(normalWS, halfDir));
     float LoH = saturate(dot(lightDirectionWS, halfDir));
  
@@ -212,12 +156,15 @@ half3 DirectBDRF_DualLobeSpecular(half roughness, half3 normalWS, half3 lightDir
     float specularTermGGX_roghness = roughness2 / ((d * d) * max(0.1h, LoH2) * (roughness * half(4.0) + half(2.0)));
     float specularTermBeckMann =(2.0 * (roughness2) /((d * d) * max(0.1h, LoH2) * (roughness * half(4.0) + half(2.0)))) * surfacepbr.lobeWeight *mask;
     float specularTerm = (specularTermGGX_roghness / 2 + specularTermBeckMann) * SpecularOcclusion;
+    #if defined (SHADER_API_MOBILE) || defined (SHADER_API_SWITCH)
           specularTerm = specularTerm - HALF_MIN;
           specularTerm = clamp(specularTerm, 0.0, 100.0);
+    #endif
     float3 specular_double = specularTerm * surfacepbr.Specular/*+(surfacepbr.basecolor*(float3)(surfacepbr.Specular))*/;
     return specular_double.xxx;
 }
- float3 PBR_Light(BRDFData brdfData,Light light,half3 normal, half3 posWS,half3 V,SurfacePBR surface_pbr,TBNpbr tbnpbr, SurfaceData surfaceData,InputData inputData)
+ float3 PBR_Light(BRDFData brdfData,Light light,half3 normal, half3 posWS,half3 V,SurfacePBR surface_pbr,TBNpbr tbnpbr, SurfaceData surfaceData
+                 ,InputData inputData,inout SubsurfaceScatteringData subsurfacescatteringdata)
 
             {
  //参数部分
@@ -245,34 +192,33 @@ half3 DirectBDRF_DualLobeSpecular(half roughness, half3 normalWS, half3 lightDir
                 F0=lerp((float3)0.04,baseColor,metalic);
   #endif
     
-  #if _TRANSMISSION
-               float3 transmittance = subsurfaceData.transmittance;
-  #else
-               float3 transmittance = float3(0, 0, 0);
-  #endif
+    
     
   //阴影
   //计算阴影
                 float3 shadow=light.distanceAttenuation * light.shadowAttenuation;                      
  //SSS 预积分
-                //Curvature
+              /*  //Curvature
                 float  deltaWorldNormal=length(fwidth(normal));
                 float  deltaWorldPos = length(fwidth(posWS));
                 float  curvature = (deltaWorldNormal/deltaWorldPos);
-                float3 SSSNL=BentNormlsDiffuseLighting(normal,L,curvature,surface_pbr,shadow);
-               
- 
+                float3 SSSNL=BentNormlsDiffuseLighting(normal,L,curvature,surface_pbr,shadow);*/
+    
  //HDRP G
                 
                 float3 SpecularColor =ComputeF0(specular1,baseColor,metalic,F0);
-                float3 F_Unreal=F_Schlick_Unreal(SpecularColor,VH);
-                float  vis=V_SmithJointGGX(NL,NV,roughness);
+                float3 F_Unreal      =F_Schlick_Unreal(SpecularColor,VH);
+                float  vis           =V_SmithJointGGX(NL,NV,roughness);
  //DFG
    
                 float3 F = F0 + (1 - F0) * exp2((-5.55473 * VH - 6.98316) * VH);
-                //float3 F=F_FresnelSchlick(VH,F0); 
+                //float3 F=F_FresnelSchlick(VH,F0);
+    
                 float  D=D_DistributionGGX(normal,H,roughness);
-                       
+ /* #if DITAL_NORMAL
+    normal=lerp(normal,surface_pbr.dital_normal,surface_pbr.dital_normal_value);
+    D=D_DistributionGGX(normal,H,roughness);
+ #endif*/
      
                 float  G=G_GeometrySmith(normal,L,V,roughness_G);
                 
@@ -291,9 +237,9 @@ half3 DirectBDRF_DualLobeSpecular(half roughness, half3 normalWS, half3 lightDir
  //间接光镜面反射
                 float  mip      = roughness*(1.7-0.7*roughness)*UNITY_SPECCUBE_LOD_STEPS;
                 float4 rgb_mip = SAMPLE_TEXTURECUBE_LOD(unity_SpecCube0,samplerunity_SpecCube0,R,mip);
-        #if enable_globlemetalic
+ #if enable_globlemetalic
                        rgb_mip =  SAMPLE_TEXTURECUBE_LOD(surface_pbr._refmap,surface_pbr.sampler_refmap,normal,_Mip)*0.5;
-        #endif
+ #endif
                 float3 EnvSpeculaiPrefilted=DecodeHDREnvironment(rgb_mip,unity_SpecCube0_HDR)*_Mip_Value;
  //数值拟合
                 float2 env_brdf= EnvBRDFApprox(roughness,NV);
@@ -308,10 +254,14 @@ half3 DirectBDRF_DualLobeSpecular(half roughness, half3 normalWS, half3 lightDir
                        v=saturate(v);
                 float  specular= numerator/denominator;
                 float  specular_double=DirectBDRF_DualLobeSpecular(roughness,normal,L,V,surface_pbr,1);
- //虚幻 高光
+ /* #if DITAL_NORMAL
+                     
+                       specular_double=DirectBDRF_DualLobeSpecular(roughness,normal,L,V,surface_pbr,1);
+    #endif*/
+ //双层 高光
        #if RENDER_Unreal
                        specular= D*vis*F;
-                       specular=saturate(specular_double*0.25+specular*0.75);
+                       specular=saturate(specular_double*0.75+specular);
        #endif
        #if HAIR_RENDER
                        specular= v*F;
@@ -323,37 +273,41 @@ half3 DirectBDRF_DualLobeSpecular(half roughness, half3 normalWS, half3 lightDir
                        ks=saturate(F);
         #endif
                 float3 kd=(1-ks)*(1-metalic);
-        #if SSS_RENDER
+      /*  #if SSS_RENDER
          NL=SSSNL;
-        #endif
+        #endif*/
  //皮肤直接光
-                float3 Diffuse=kd*baseColor;//没有除以PI
+    //透射参数
+  
+                float  flippedNdotL = ComputeWrappedDiffuseLighting(-NL,cos(PI/2 - (PI/12)));
+
+    
+                float3 diffT=flippedNdotL*baseColor*radiance;
+                float3 Diffuse=kd*baseColor* radiance *NL*surface_pbr.basecolor*shadow;//没有除以PI
+
+    
                 float3 DirectLight = (Diffuse+ specular)* radiance *NL*surface_pbr.basecolor*shadow ;
                        //DirectLight = lerp(DirectLight*surface_pbr.shadowcolor,DirectLight,shadow);
  //ao
+                       specular=specular* radiance *NL*surface_pbr.basecolor*shadow ;
                        ao=smoothstep(0,1,ao);
                 float3 aoColor=lerp(surface_pbr.aoColor,1,ao);
                        aoColor=saturate(lerp(1,aoColor,surface_pbr.aoColor_value));
-                float3 IndirectLight=(Diffuse_Indirect+Specular_Indirect)*aoColor*surface_pbr.shadowcolor;
-                       //IndirectLight = lerp(IndirectLight*surface_pbr.shadowcolor,IndirectLight,shadow);
- //SSS光照
-                half3 diffuseLighting;
-                half3 specularLighting;
-                SubsurfaceScatterLit(inputData, surfaceData, diffuseLighting, specularLighting);
-                
-                //#if defined(_SUBSURFACESCATTERING) || defined(_TRANSMISSION)
-                output.specluarBuffer = half4(specularLighting, surfaceData.alpha);
-                output.diffuseBuffer = half4(diffuseLighting,   surfaceData.alpha);
-                output.diffuseBuffer.rgb += surfaceData.emission;
-   #if defined(_SUBSURFACESCATTERING)
-                //output.sssBuffer = half4(surface.albedo, PackFloatInt8bit(subsurfaceData.subsurfaceMask, 0, 16));
-                output.sssBuffer = half4(surface.albedo, subsurfaceData.subsurfaceMask);
-   #else
-                output.sssBuffer = half4(surfaceData.albedo, 0);
-                #endif
+
  //屏幕侧面光
               
                 float3 ScreenRimcol=ScreenRimLight(surface_pbr,shadow,posWS);
+    
+    
+                float3 IndirectLight=(Diffuse_Indirect+Specular_Indirect)*aoColor*surface_pbr.shadowcolor;
+                       //IndirectLight = lerp(IndirectLight*surface_pbr.shadowcolor,IndirectLight,shadow);
+
+//#endif
+                       subsurfacescatteringdata.specularLighting+=specular+Specular_Indirect*aoColor/**surface_pbr.shadowcolor*/;
+                       subsurfacescatteringdata.diffuseLighting +=(Diffuse +Diffuse_Indirect*aoColor*surface_pbr.shadowcolor);
+                       subsurfacescatteringdata.diffT +=diffT;
+  
+ 
  //最终光照
                
                 float3 Finalcolor=0;
