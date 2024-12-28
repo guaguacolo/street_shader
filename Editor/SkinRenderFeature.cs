@@ -29,31 +29,30 @@ public class SkinRenderFeature : ScriptableRendererFeature
     {
         m_ScriptablePass = new SkinRenderPass(settings);
         m_ScriptablePass.renderPassEvent = settings.RenderPassEvent;
-        if (m_ScriptablePass.renderPassEvent == RenderPassEvent.BeforeRenderingOpaques)
+       /* if (m_ScriptablePass.renderPassEvent == RenderPassEvent.BeforeRenderingOpaques)
         {
             Debug.Log($"SkinRenderPass RenderPassEvent set to: {m_ScriptablePass.renderPassEvent}");
         }
         else
         {
             Debug.Log($"SkinRenderPass RenderPassEvent wrong");
-        }
+        }*/
     }
     public override void AddRenderPasses(ScriptableRenderer renderer, ref RenderingData renderingData)
     {
         m_ScriptablePass.SetRenderer(renderer);
-        Debug.Log("SkinRenderPass added to renderer");
         renderer.EnqueuePass(m_ScriptablePass);
        
     }
     class SkinRenderPass       : ScriptableRenderPass
     {
         #region 属性
-        RTHandle      m_SSSColor;
-        RTHandle      m_SSSColorMSAA;
+        //RTHandle      m_SSSColor;
+        //RTHandle      m_SSSColorMSAA;
         bool          m_SSSReuseGBufferMemory;
         ComputeShader m_SubsurfaceScatteringCS;
         Material      m_CombineLightingPass;
-        RTHandle      m_SSSCameraFilteringBuffer;
+        //RTHandle      m_SSSCameraFilteringBuffer;
         Material      m_SSSCopyStencilForSplitLighting;
         public  Settings settings; 
         Vector4[]                           m_SSSShapeParamsAndMaxScatterDists;
@@ -124,12 +123,12 @@ public class SkinRenderFeature : ScriptableRendererFeature
         void DestroySSSBuffers()
         {
             //释放不再使用的资源
-            RTHandles.Release(m_SSSColorMSAA);
-            RTHandles.Release(m_SSSCameraFilteringBuffer);
-            if (!m_SSSReuseGBufferMemory)
+            //RTHandles.Release(m_SSSColorMSAA);
+            //RTHandles.Release(m_SSSCameraFilteringBuffer);
+            /*if (!m_SSSReuseGBufferMemory)
             {
                 RTHandles.Release(m_SSSColor);
-            }
+            }*/
         }
        
         public override void Configure(CommandBuffer cmd, RenderTextureDescriptor cameraTextureDescriptor)
@@ -138,11 +137,11 @@ public class SkinRenderFeature : ScriptableRendererFeature
             m_CombineLightingPass.SetInt(SSSShaderID._StencilMask, (int)StencilUsage.SubsurfaceScattering);*/
             //m_CombineLightingPass = CoreUtils.CreateEngineMaterial(Shader.Find("Hidden/HDRP/CombineLighting"));
             m_CombineLightingPass = CoreUtils.CreateEngineMaterial(Shader.Find("Game/Combinetest"));
-            if (m_CombineLightingPass == null) {
+           /* if (m_CombineLightingPass == null) {
                 Debug.LogError(" m_CombineLightingPass 未能加载！");
             } else {
                 Debug.Log(" m_CombineLightingPass 成功加载！");
-            }
+            }*/
            
             //InitializeSubsurfaceScattering();
             int width = cameraTextureDescriptor.width;

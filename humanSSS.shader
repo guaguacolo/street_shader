@@ -24,6 +24,8 @@ Shader "Game/humanSSS"
         _refmap("_refmap",Cube) = ""{}
         _Mip("_Mip",Range(0,8)) = 4.0
         _F0("_F0",Vector) = (0.04,0.04,0.04,0.04)
+        _ThickNessMin("_ThickNessMin",Range(-20,20)) = 0
+        _ThickNessMax("_ThickNessMax",Range(-20,20)) = 1
         _tuneNormalBlur("_tuneNormalBlur",Color) = (0.04,0.04,0.04,0.04)
         _Mip_Value("_Mip_Value",Range(0,2)) = 0.5
         //dital_normal_value("dital_normal_value",Range(0,2)) = 0.5
@@ -414,6 +416,8 @@ Shader "Game/humanSSS"
             float _LUTY;
             //float dital_normal_value;
             float _Thickness;
+            float _ThickNessMin;
+            float _ThickNessMax;
             float _Metalness;
             float _Smoothness;
             float _AOScale;
@@ -597,6 +601,8 @@ Shader "Game/humanSSS"
                  #ifdef _TRANSMISSION
                      float2 remap = _WorldScalesAndFilterRadiiAndThicknessRemaps.zw;
                      float  thickness = subsurfaceData.thickness;
+                     thickness= -Remap(thickness,0,1,_ThickNessMin,_ThickNessMax);
+                     //thickness = exp(thickness * thickness);
                      subsurfaceData.thickness = remap.x + remap.y * thickness;
                      subsurfaceData.transmittance = ComputeTransmittanceDisney(_ShapeParamsAndMaxScatterDists.rgb, _TransmissionTintsAndFresnel0.rgb, subsurfaceData.thickness);
                  #endif

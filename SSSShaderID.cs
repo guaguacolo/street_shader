@@ -1,5 +1,5 @@
 using UnityEngine;
-
+  
 public static class SSSShaderID
 {
     //Some Examples
@@ -18,5 +18,6 @@ public static class SSSShaderID
     public static readonly int _IrradianceSource = Shader.PropertyToID("_IrradianceSource");
     public static readonly int _SSSBufferTexture = Shader.PropertyToID("_SSSBufferTexture");
     public static readonly int _CameraFilteringBuffer = Shader.PropertyToID("_CameraFilteringBuffer");
+    public static readonly int _HightShadowTex = Shader.PropertyToID("_HightShadowTex");
    
 }

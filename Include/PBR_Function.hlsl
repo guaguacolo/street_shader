@@ -93,6 +93,12 @@ float GeometryShlickGGX(float NV,float Roughness)
     float denominator=k+(1.0-k)*NV;
     return numerator/max(denominator,0.001);
 }
+
+ float Remap(float value, float fromMin, float fromMax, float toMin, float toMax)
+{
+    return toMin + (value - fromMin) * (toMax - toMin) / (fromMax - fromMin);
+}
+
 float G_GeometrySmith(float3 N, float3 L, float3 V,float Roughness)
 {
     float NV=max(saturate(dot(N,V)),0);
